@@ -17,7 +17,7 @@
 
 ---
 
-## 核心功能
+## 功能
 
 Kazuha 致力于提供简洁、高效的演示体验，特别针对课堂教学场景。
 
@@ -38,6 +38,14 @@ Kazuha 致力于提供简洁、高效的演示体验，特别针对课堂教学�
 * ** 教学辅助：** 极其适用于课堂中要求学生记录知识点时，便于学生方便地找出何处应该记录。
 
 <img width="1920" height="1080" alt="重点框选功能截图" src="https://github.com/user-attachments/assets/b39b7941-b98b-406c-9f1c-d32850ac2bb4" />
+
+### 3.高度自定义
+您基本上可以在演示过程中修改任何元素的位置，除了工具栏。
+
+<img width="1920" height="1080" alt="上部截图" src="https://github.com/user-attachments/assets/532e2a25-a832-4e64-a7cf-0872c85c6f32" />
+<img width="1920" height="1080" alt="下部截图" src="https://github.com/user-attachments/assets/b255f662-3f51-404b-92ee-98dc45fa10e7" />
+<img width="1920" height="1080" alt="中部截图" src="https://github.com/user-attachments/assets/4c14fdf7-63af-4fe2-8d09-0301399fa9d8" />
+
 
 ---
 

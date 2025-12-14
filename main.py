@@ -10,9 +10,15 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, QB
 from PyQt6.QtCore import Qt, QTimer, QSize, QPoint, QPointF, pyqtSignal, QEvent, QRect, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import (QIcon, QPainter, QColor, QAction, QPixmap, QPen, QBrush, 
                          QPolygon, QPolygonF, QMouseEvent)
-from qfluentwidgets import (PushButton, TransparentToolButton, FluentIcon, ToolButton, 
+from qfluentwidgets import (PushButton, TransparentToolButton, ToolButton, 
                             setTheme, Theme, isDarkTheme, ToolTipFilter, ToolTipPosition,
                             Flyout, FlyoutView, FlyoutAnimationType)
+from qfluentwidgets.components.material import AcrylicFlyout
+
+
+def icon_path(name):
+    base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, "icons", name)
 
 class IconFactory:
     @staticmethod
@@ -111,7 +117,7 @@ class SlideSelectorFlyout(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFixedSize(450, 500) 
         scroll.setStyleSheet("""
-            QScrollArea { border: none; background: transparent; }
+            QScrollArea { border: none; background-color: rgba(30, 30, 30, 240); }
             QScrollBar:vertical {
                 border: none;
                 background: transparent;
@@ -129,7 +135,7 @@ class SlideSelectorFlyout(QWidget):
         """)
         
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
+        container.setStyleSheet("background-color: rgba(30, 30, 30, 240);")
         self.grid = QGridLayout(container)
         self.grid.setSpacing(15)
         
@@ -260,6 +266,7 @@ class EraserSettingsFlyout(QWidget):
                 break
             parent = parent.parent()
 
+
 class SpotlightOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -364,9 +371,8 @@ class PageNavWidget(QWidget):
         
         # Ensure consistent height
         self.container.setMinimumHeight(52)
-        
         self.btn_prev = TransparentToolButton(parent=self)
-        self.btn_prev.setIcon(FluentIcon.LEFT_ARROW)
+        self.btn_prev.setIcon(QIcon(icon_path("Previous.svg")))
         self.btn_prev.setFixedSize(36, 36) 
         self.btn_prev.setIconSize(QSize(18, 18))
         self.btn_prev.setToolTip("上一页")
@@ -374,7 +380,7 @@ class PageNavWidget(QWidget):
         self.style_nav_btn(self.btn_prev)
         
         self.btn_next = TransparentToolButton(parent=self)
-        self.btn_next.setIcon(FluentIcon.RIGHT_ARROW)
+        self.btn_next.setIcon(QIcon(icon_path("Next.svg")))
         self.btn_next.setFixedSize(36, 36) 
         self.btn_next.setIconSize(QSize(18, 18))
         self.btn_next.setToolTip("下一页")
@@ -433,11 +439,14 @@ class PageNavWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.2);
             }
         """)
-
+    
     def eventFilter(self, obj, event):
-        if obj == self.page_info_widget and event.type() == QEvent.Type.MouseButtonRelease:
-            self.show_slide_selector()
-            return True
+        if obj == self.page_info_widget:
+            if event.type() == QEvent.Type.MouseButtonDblClick:
+                return super().eventFilter(obj, event)
+            elif event.type() == QEvent.Type.MouseButtonRelease:
+                self.show_slide_selector()
+                return True
         return super().eventFilter(obj, event)
 
     def show_slide_selector(self):
@@ -447,10 +456,18 @@ class PageNavWidget(QWidget):
         view = SlideSelectorFlyout(self.ppt_app)
         view.slide_selected.connect(self.request_slide_jump.emit)
         
-        Flyout.make(view, self.page_info_widget, self.window(), FlyoutAnimationType.PULL_UP)
+        flyout = AcrylicFlyout(view, self.window())
+        flyout.exec(self.page_info_widget.mapToGlobal(self.page_info_widget.rect().bottomLeft()), FlyoutAnimationType.PULL_UP)
 
     def update_page(self, current, total):
         self.lbl_page_num.setText(f"{current}/{total}")
+    
+    def apply_settings(self):
+        self.btn_prev.setToolTip("上一页")
+        self.btn_next.setToolTip("下一页")
+        self.lbl_page_text.setText("页码")
+        self.style_nav_btn(self.btn_prev)
+        self.style_nav_btn(self.btn_next)
 
 class ToolBarWidget(QWidget):
     request_spotlight = pyqtSignal()
@@ -491,22 +508,20 @@ class ToolBarWidget(QWidget):
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
         
-        self.btn_arrow = self.create_tool_btn("选择", IconFactory.draw_cursor("#ffffff"))
-        self.btn_pen = self.create_tool_btn("笔", FluentIcon.EDIT)
-        self.btn_eraser = self.create_tool_btn("橡皮", FluentIcon.ERASE_TOOL)
-        self.btn_clear = self.create_action_btn("一键清除", FluentIcon.DELETE)
+        self.btn_arrow = self.create_tool_btn("选择", QIcon(icon_path("Mouse.svg")))
+        self.btn_pen = self.create_tool_btn("笔", QIcon(icon_path("Pen.svg")))
+        self.btn_eraser = self.create_tool_btn("橡皮", QIcon(icon_path("Eraser.svg")))
+        self.btn_clear = self.create_action_btn("一键清除", QIcon(icon_path("Clear.svg")))
         self.btn_clear.clicked.connect(self.request_clear_ink.emit)
         
         self.group.addButton(self.btn_arrow)
         self.group.addButton(self.btn_pen)
         self.group.addButton(self.btn_eraser)
         
-        # Feature Buttons
-        self.btn_spotlight = self.create_action_btn("聚焦", FluentIcon.HIGHTLIGHT)
+        self.btn_spotlight = self.create_action_btn("聚焦", QIcon(icon_path("Select.svg")))
         self.btn_spotlight.clicked.connect(self.request_spotlight.emit)
         
-        # Exit Button
-        self.btn_exit = self.create_action_btn("结束放映", FluentIcon.POWER_BUTTON)
+        self.btn_exit = self.create_action_btn("结束放映", QIcon(icon_path("Minimaze.svg")))
         self.btn_exit.clicked.connect(self.request_exit.emit)
         self.btn_exit.setStyleSheet("""
             TransparentToolButton {
@@ -566,12 +581,28 @@ class ToolBarWidget(QWidget):
     def show_pen_settings(self):
         view = PenSettingsFlyout()
         view.color_selected.connect(self.request_pen_color.emit)
-        Flyout.make(view, self.btn_pen, self.window(), FlyoutAnimationType.PULL_UP)
+        flyout = AcrylicFlyout(view, self.window())
+        flyout.exec(self.btn_pen.mapToGlobal(self.btn_pen.rect().bottomLeft()), FlyoutAnimationType.PULL_UP)
 
     def show_eraser_settings(self):
         view = EraserSettingsFlyout()
         view.clear_all_clicked.connect(self.request_clear_ink.emit)
-        Flyout.make(view, self.btn_eraser, self.window(), FlyoutAnimationType.PULL_UP)
+        flyout = AcrylicFlyout(view, self.window())
+        flyout.exec(self.btn_eraser.mapToGlobal(self.btn_eraser.rect().bottomLeft()), FlyoutAnimationType.PULL_UP)
+    
+    def apply_settings(self):
+        self.btn_arrow.setToolTip("选择")
+        self.btn_pen.setToolTip("笔")
+        self.btn_eraser.setToolTip("橡皮")
+        self.btn_clear.setToolTip("一键清除")
+        self.btn_spotlight.setToolTip("聚焦")
+        self.btn_exit.setToolTip("结束放映")
+        self.style_tool_btn(self.btn_arrow)
+        self.style_tool_btn(self.btn_pen)
+        self.style_tool_btn(self.btn_eraser)
+        self.style_action_btn(self.btn_clear)
+        self.style_action_btn(self.btn_spotlight)
+        self.style_action_btn(self.btn_exit)
 
     def create_tool_btn(self, text, icon):
         btn = TransparentToolButton(parent=self)
@@ -581,7 +612,20 @@ class ToolBarWidget(QWidget):
         btn.setCheckable(True)
         btn.setToolTip(text)
         btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
+        self.style_tool_btn(btn)
+        return btn
         
+    def create_action_btn(self, text, icon):
+        btn = TransparentToolButton(parent=self)
+        btn.setIcon(icon)
+        btn.setFixedSize(40, 40)
+        btn.setIconSize(QSize(20, 20))
+        btn.setToolTip(text)
+        btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
+        self.style_action_btn(btn)
+        return btn
+    
+    def style_tool_btn(self, btn):
         btn.setStyleSheet("""
             TransparentToolButton {
                 border-radius: 6px;
@@ -604,17 +648,8 @@ class ToolBarWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.15);
             }
         """)
-        
-        return btn
-        
-    def create_action_btn(self, text, icon):
-        btn = TransparentToolButton(parent=self)
-        btn.setIcon(icon)
-        btn.setFixedSize(40, 40)
-        btn.setIconSize(QSize(20, 20))
-        btn.setToolTip(text)
-        btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
-        
+    
+    def style_action_btn(self, btn):
         btn.setStyleSheet("""
             TransparentToolButton {
                 border-radius: 6px;
@@ -629,7 +664,6 @@ class ToolBarWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.2);
             }
         """)
-        return btn
 
 class MainController(QWidget):
     def __init__(self):
@@ -691,7 +725,8 @@ class MainController(QWidget):
             return True
 
     def show_warning(self, target, message):
-        self.tray_icon.showMessage("PPT助手提示", message, QSystemTrayIcon.MessageIcon.Warning, 2000)
+        title = "PPT助手提示"
+        self.tray_icon.showMessage(title, message, QSystemTrayIcon.MessageIcon.Warning, 2000)
 
     def setup_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
@@ -708,15 +743,13 @@ class MainController(QWidget):
         self.autorun_action.triggered.connect(self.toggle_autorun)
         menu.addAction(self.autorun_action)
         
-        menu.addSeparator()
-        
-        quit_action = QAction("退出", self)
-        quit_action.triggered.connect(QApplication.instance().quit)
-        menu.addAction(quit_action)
+        self.quit_action = QAction("退出", self)
+        self.quit_action.triggered.connect(QApplication.instance().quit)
+        menu.addAction(self.quit_action)
         
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.show()
-
+    
     def is_autorun(self):
         try:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ)
@@ -806,21 +839,19 @@ class MainController(QWidget):
             screen.height() - tb_h - MARGIN, # Flush bottom
             tb_w, tb_h
         )
-        
-        # Nav Left: Bottom Left
         nav_w = self.nav_left.sizeHint().width()
         nav_h = self.nav_left.sizeHint().height()
+        y = screen.height() - nav_h - MARGIN
         
         self.nav_left.setGeometry(
-            MARGIN, # Flush left
-            screen.height() - nav_h - MARGIN, # Flush bottom
+            MARGIN,
+            y,
             nav_w, nav_h
         )
         
-        # Nav Right: Bottom Right
         self.nav_right.setGeometry(
-            screen.width() - nav_w - MARGIN, # Flush right
-            screen.height() - nav_h - MARGIN, # Flush bottom
+            screen.width() - nav_w - MARGIN,
+            y,
             nav_w, nav_h
         )
 

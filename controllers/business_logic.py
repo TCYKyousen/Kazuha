@@ -37,7 +37,6 @@ class BusinessLogicController(QWidget):
         self.nav_left = None
         self.nav_right = None
         self.spotlight = None
-        self.nav_anchor = "bottom"
         
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_state)
@@ -56,7 +55,6 @@ class BusinessLogicController(QWidget):
         if self.nav_left:
             self.nav_left.clicked.connect(self.prev_page)
             self.nav_left.request_slide_jump.connect(self.jump_to_slide)
-            self.nav_left.dragged.connect(self.on_nav_dragged)
             
         if self.nav_right:
             self.nav_right.clicked.connect(self.next_page)
@@ -73,7 +71,7 @@ class BusinessLogicController(QWidget):
             return os.path.join(os.path.dirname(base_dir), "icons", name)
         
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(QIcon(icon_path("trayicon.svg")))
+        self.tray_icon.setIcon(QIcon(icon_path("Mouse.svg")))
         
         tray_menu = QMenu()
         # 将切换按钮改为复选框
@@ -331,41 +329,21 @@ class BusinessLogicController(QWidget):
             screen.height() - tb_h - MARGIN, # Flush bottom
             tb_w, tb_h
         )
-        if self.nav_left and self.nav_right:
-            self.nav_left.set_anchor(self.nav_anchor)
-            self.nav_right.set_anchor(self.nav_anchor)
-            nav_w = self.nav_left.sizeHint().width()
-            nav_h = self.nav_left.sizeHint().height()
-            if self.nav_anchor == "top":
-                y = MARGIN
-            elif self.nav_anchor == "middle":
-                y = max(MARGIN, (screen.height() - nav_h) // 2)
-            else:
-                y = screen.height() - nav_h - MARGIN
+        nav_w = self.nav_left.sizeHint().width()
+        nav_h = self.nav_left.sizeHint().height()
+        y = screen.height() - nav_h - MARGIN
         
-            self.nav_left.setGeometry(
-                MARGIN,
-                y,
-                nav_w, nav_h
-            )
-            self.nav_right.setGeometry(
-                screen.width() - nav_w - MARGIN,
-                y,
-                nav_w, nav_h
-            )
-
-    def on_nav_dragged(self, global_y):
-        screen = QApplication.primaryScreen().geometry()
-        h = screen.height()
-        if global_y < h * 0.33:
-            anchor = "top"
-        elif global_y > h * 0.66:
-            anchor = "bottom"
-        else:
-            anchor = "middle"
-        if anchor != self.nav_anchor:
-            self.nav_anchor = anchor
-            self.adjust_positions()
+        self.nav_left.setGeometry(
+            MARGIN,
+            y,
+            nav_w, nav_h
+        )
+        
+        self.nav_right.setGeometry(
+            screen.width() - nav_w - MARGIN,
+            y,
+            nav_w, nav_h
+        )
 
     def sync_state(self, view):
         try:

@@ -238,16 +238,23 @@ class LoadingOverlay(QWidget):
         
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(20)
         
         self.ring = IndeterminateProgressRing(self)
-        self.ring.setFixedSize(60, 60)
+        self.ring.setFixedSize(48, 48)
+        self.ring.setStrokeWidth(4)
+        
+        self.label = BodyLabel("正在加载幻灯片预览...", self)
+        self.label.setStyleSheet("color: white; font-size: 14px; font-family: 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei';")
         
         layout.addWidget(self.ring)
+        layout.addWidget(self.label, 0, Qt.AlignmentFlag.AlignCenter)
         
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor(0, 0, 0, 80)) # Reduced opacity (more transparent)
+        # Smoke layer
+        painter.setBrush(QColor(0, 0, 0, 128)) 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(self.rect())
 
@@ -855,18 +862,21 @@ class PageNavWidget(QWidget):
             
         self.current_theme = theme
         
+        # Morandi Green Theme
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)"
             border_color = "rgba(0, 0, 0, 0.1)"
             text_color = "#333333"
             subtext_color = "#666666"
             line_color = "rgba(0, 0, 0, 0.1)"
+            accent_color = "#8BA88D"
         else:
             bg_color = "rgba(30, 30, 30, 240)"
             border_color = "rgba(255, 255, 255, 0.1)"
             text_color = "white"
             subtext_color = "#aaaaaa"
             line_color = "rgba(255, 255, 255, 0.2)"
+            accent_color = "#5A7D59"
             
         self.container.setStyleSheet(f"""
             QWidget#Container {{
@@ -881,7 +891,7 @@ class PageNavWidget(QWidget):
             }}
         """)
         
-        self.lbl_page_num.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {text_color};")
+        self.lbl_page_num.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {accent_color};")
         self.lbl_page_text.setStyleSheet(f"font-size: 12px; color: {subtext_color};")
         self.line1.setStyleSheet(f"color: {line_color};")
         self.line2.setStyleSheet(f"color: {line_color};")
@@ -894,26 +904,39 @@ class PageNavWidget(QWidget):
 
     def style_nav_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            hover_bg = "rgba(0, 0, 0, 0.05)"
-            pressed_bg = "rgba(0, 0, 0, 0.1)"
+            # Morandi Green Accent
+            dot_color = "#8BA88D"
+            hover_bg = "rgba(139, 168, 141, 0.2)"
+            pressed_bg = "rgba(139, 168, 141, 0.4)"
             text_color = "#333333"
         else:
-            hover_bg = "rgba(255, 255, 255, 0.1)"
-            pressed_bg = "rgba(255, 255, 255, 0.2)"
+            dot_color = "#5A7D59"
+            hover_bg = "rgba(90, 125, 89, 0.3)"
+            pressed_bg = "rgba(90, 125, 89, 0.5)"
             text_color = "white"
             
+        # Dot style: 
+        # Normal: 8px dot (radius 4px)
+        # Active/Hover: 12px dot (radius 6px)
+        # Button size is 36x36.
+        # 4px is approx 0.11 radius.
+        # 6px is approx 0.17 radius.
+        
         btn.setStyleSheet(f"""
             TransparentToolButton {{
-                border-radius: 6px;
+                border-radius: 18px;
                 border: none;
                 background-color: transparent;
                 color: {text_color};
+                background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.11, fx:0.5, fy:0.5, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:hover {{
                 background-color: {hover_bg};
+                background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.17, fx:0.5, fy:0.5, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:pressed {{
                 background-color: {pressed_bg};
+                background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.17, fx:0.5, fy:0.5, stop:0 {dot_color}, stop:1 transparent);
             }}
         """)
     
@@ -949,19 +972,15 @@ class PageNavWidget(QWidget):
         view = SlideSelectorFlyout(self.ppt_app)
         view.slide_selected.connect(self.request_slide_jump.emit)
         
-        # Ensure view has a background
-        if self.current_theme == Theme.LIGHT:
-            bg_color = "#f3f3f3"
-        else:
-            bg_color = "#202020"
-        view.setStyleSheet(f"SlideSelectorFlyout {{ background-color: {bg_color}; border-radius: 8px; }}")
+        # Transparent background to let flyout window style show through
+        view.setStyleSheet("SlideSelectorFlyout { background-color: transparent; }")
 
         win = DetachedFlyoutWindow(view, self)
         view.slide_selected.connect(win.close)
         win.show_at(self.page_info_widget)
 
     def update_page(self, current, total):
-        self.lbl_page_num.setText(f"{current}/{total}")
+        self.lbl_page_num.setText(f"<html><head/><body><p><span style='font-size:18pt;'>{current}</span><span style='font-size:12pt;'>/{total}</span></p></body></html>")
     
     def apply_settings(self):
         self.btn_prev.setToolTip("上一页")
@@ -1091,7 +1110,8 @@ class ToolBarWidget(QWidget):
         view = PenSettingsFlyout(self)
         view.color_selected.connect(self.request_pen_color.emit)
         
-        view.setStyleSheet(f"background-color: {self.get_flyout_bg_color()}; border-radius: 8px;")
+        # Transparent to let mica show through
+        view.setStyleSheet("background-color: transparent;")
         
         win = DetachedFlyoutWindow(view, self)
         view.color_selected.connect(win.close)
@@ -1101,17 +1121,12 @@ class ToolBarWidget(QWidget):
         view = EraserSettingsFlyout(self)
         view.clear_all_clicked.connect(self.request_clear_ink.emit)
         
-        view.setStyleSheet(f"background-color: {self.get_flyout_bg_color()}; border-radius: 8px;")
+        # Transparent to let mica show through
+        view.setStyleSheet("background-color: transparent;")
         
         win = DetachedFlyoutWindow(view, self)
         view.clear_all_clicked.connect(win.close)
         win.show_at(self.btn_eraser)
-        
-    def get_flyout_bg_color(self):
-        if self.current_theme == Theme.LIGHT:
-            return "#f3f3f3"
-        else:
-            return "#202020"
 
     def set_theme(self, theme):
         if theme == Theme.AUTO:
@@ -1120,7 +1135,7 @@ class ToolBarWidget(QWidget):
             
         self.current_theme = theme
         
-        # Update container style
+        # Morandi Green Theme
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)"
             border_color = "rgba(0, 0, 0, 0.1)"
@@ -1137,7 +1152,7 @@ class ToolBarWidget(QWidget):
                 background-color: {bg_color};
                 border: 1px solid {border_color};
                 border-bottom: 1px solid {border_color};
-                border-radius: 12px;
+                border-radius: 20px; /* Rounded container */
             }}
         """)
         
@@ -1160,7 +1175,7 @@ class ToolBarWidget(QWidget):
     def create_tool_btn(self, text, icon_name):
         btn = TransparentToolButton(parent=self)
         btn.setIcon(get_icon(icon_name, self.current_theme))
-        btn.setFixedSize(40, 40) 
+        btn.setFixedSize(40, 48) # Increased height to accommodate dot
         btn.setIconSize(QSize(20, 20))
         btn.setCheckable(True)
         btn.setToolTip(text)
@@ -1171,7 +1186,7 @@ class ToolBarWidget(QWidget):
     def create_action_btn(self, text, icon_name):
         btn = TransparentToolButton(parent=self)
         btn.setIcon(get_icon(icon_name, self.current_theme))
-        btn.setFixedSize(40, 40)
+        btn.setFixedSize(40, 48) # Increased height
         btn.setIconSize(QSize(20, 20))
         btn.setToolTip(text)
         btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
@@ -1180,16 +1195,21 @@ class ToolBarWidget(QWidget):
     
     def style_tool_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            hover_bg = "rgba(0, 0, 0, 0.05)"
-            checked_bg = "rgba(0, 0, 0, 0.05)"
+            hover_bg = "rgba(139, 168, 141, 0.2)"
+            checked_bg = "transparent"
             text_color = "#333333"
-            border_bottom = "#00cc7a"
+            dot_color = "#8BA88D"
         else:
-            hover_bg = "rgba(255, 255, 255, 0.1)"
-            checked_bg = "rgba(255, 255, 255, 0.1)"
+            hover_bg = "rgba(90, 125, 89, 0.3)"
+            checked_bg = "transparent"
             text_color = "white"
-            border_bottom = "#00cc7a"
+            dot_color = "#5A7D59"
             
+        # Using radial gradient to simulate a dot at the bottom
+        # cx, cy is center. 0.5, 0.85 puts it near bottom.
+        # radius 5px (approx 0.12 of 40px width) -> 10px diameter.
+        # User asked for 8px/12px.
+        
         btn.setStyleSheet(f"""
             TransparentToolButton {{
                 border-radius: 6px;
@@ -1200,34 +1220,33 @@ class ToolBarWidget(QWidget):
             }}
             TransparentToolButton:hover {{
                 background-color: {hover_bg};
+                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.1, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:checked {{
                 background-color: {checked_bg};
                 color: {text_color};
-                border-bottom: 3px solid {border_bottom};
-                border-bottom-left-radius: 2px;
-                border-bottom-right-radius: 2px;
+                border: none;
+                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.15, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:checked:hover {{
                 background-color: {hover_bg};
+                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.15, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
             }}
         """)
     
     def style_action_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            hover_bg = "rgba(0, 0, 0, 0.05)"
-            pressed_bg = "rgba(0, 0, 0, 0.1)"
+            # Morandi Green hints for Light Theme
+            hover_bg = "rgba(139, 168, 141, 0.2)" # Subtle green tint
+            pressed_bg = "rgba(139, 168, 141, 0.3)"
             text_color = "#333333"
         else:
-            hover_bg = "rgba(255, 255, 255, 0.1)"
-            pressed_bg = "rgba(255, 255, 255, 0.2)"
+            # Morandi Green hints for Dark Theme
+            hover_bg = "rgba(90, 125, 89, 0.3)"
+            pressed_bg = "rgba(90, 125, 89, 0.4)"
             text_color = "white"
             
-        # Special case for exit button hover color if needed, but keeping it simple for now
-        # If it's exit button, we might want red hover. 
-        # But the previous code had specific style for btn_exit. 
-        # Let's handle btn_exit specifically in set_theme loop or check here.
-        
+        # Special case for exit button hover color
         if btn == self.btn_exit:
              btn.setStyleSheet(f"""
                 TransparentToolButton {{
@@ -1463,13 +1482,13 @@ class TimerWindow(QWidget):
     def set_theme(self, theme):
         self.current_theme = theme
         if theme == Theme.LIGHT:
-            bg_color = "rgba(255, 255, 255, 248)"
-            border_color = "rgba(0, 0, 0, 0.1)"
+            bg_color = "rgba(243, 243, 243, 0.95)"
+            border_color = "rgba(0, 0, 0, 0.05)"
             text_color = "#333333"
             self.title_label.setTextColor("#333333", "#333333")
         else:
-            bg_color = "rgba(32, 32, 32, 248)"
-            border_color = "rgba(255, 255, 255, 0.1)"
+            bg_color = "rgba(32, 32, 32, 0.95)"
+            border_color = "rgba(255, 255, 255, 0.08)"
             text_color = "white"
             self.title_label.setTextColor("white", "white")
             

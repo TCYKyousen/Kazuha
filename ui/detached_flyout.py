@@ -23,14 +23,23 @@ class DetachedFlyoutWindow(QWidget):
         root_layout.addWidget(self.background)
 
         if isDarkTheme():
-            mica_color = "#202020"
+            mica_color = "rgba(32, 32, 32, 0.95)"
+            border = "1px solid rgba(255, 255, 255, 0.08)"
         else:
-            mica_color = "#f3f3f3"
-        self.background.setStyleSheet(f"QWidget#Background {{ background-color: {mica_color}; border-radius: 12px; }}")
+            mica_color = "rgba(243, 243, 243, 0.95)"
+            border = "1px solid rgba(0, 0, 0, 0.05)"
+            
+        self.background.setStyleSheet(f"""
+            QWidget#Background {{ 
+                background-color: {mica_color}; 
+                border-radius: 8px; 
+                border: {border};
+            }}
+        """)
 
         self.shadow = QGraphicsDropShadowEffect(self)
-        self.shadow.setBlurRadius(40)
-        self.shadow.setColor(QColor(0, 0, 0, 80))
+        self.shadow.setBlurRadius(32)
+        self.shadow.setColor(QColor(0, 0, 0, 60))
         self.shadow.setOffset(0, 8)
         self.background.setGraphicsEffect(self.shadow)
 

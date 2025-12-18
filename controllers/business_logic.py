@@ -9,6 +9,8 @@ from PyQt6.QtGui import QIcon
 from qfluentwidgets import setTheme, Theme, SystemTrayMenu, Action
 from ui.widgets import AnnotationWidget, TimerWindow, LoadingOverlay
 from .ppt_client import PPTClient
+from .version_manager import VersionManager
+from qfluentwidgets import MessageBox, PushButton
 import pythoncom
 import os
 
@@ -56,6 +58,7 @@ class BusinessLogicController(QWidget):
         self.move(-100, -100) 
         
         self.ppt_client = PPTClient()
+        self.version_manager = VersionManager()
         
         # 批注功能组件
         self.annotation_widget = None
@@ -127,11 +130,65 @@ class BusinessLogicController(QWidget):
         tray_menu.addAction(self.theme_light_action)
         tray_menu.addAction(self.theme_dark_action)
         tray_menu.addSeparator()
+        
+        # About Menu
+        about_menu = SystemTrayMenu("关于", parent=tray_menu)
+        check_update_action = Action(self, text="检查更新", triggered=self.check_for_updates)
+        about_action = Action(self, text="版本信息", triggered=self.show_about_dialog)
+        
+        about_menu.addAction(check_update_action)
+        about_menu.addAction(about_action)
+        tray_menu.addMenu(about_menu)
+        
+        tray_menu.addSeparator()
         tray_menu.addAction(exit_action)
 
         self.tray_icon.setContextMenu(tray_menu)
         self.set_theme_mode(self.theme_mode)
         self.tray_icon.show()
+        
+        # Connect Version Manager Signals
+        self.version_manager.update_available.connect(self.on_update_available)
+        self.version_manager.update_error.connect(lambda e: self.show_warning(None, f"更新错误: {e}"))
+        
+        # Auto check for updates
+        self.version_manager.check_for_updates()
+
+    def check_for_updates(self):
+        self.tray_icon.showMessage("PPT助手", "正在检查更新...", QSystemTrayIcon.MessageIcon.Information, 2000)
+        self.version_manager.check_for_updates()
+
+    def on_update_available(self, info):
+        title = "发现新版本"
+        content = f"版本: {info['version']}\n\n{info['body']}\n\n是否立即更新？"
+        
+        w = MessageBox(title, content, self.get_parent_for_dialog())
+        if w.exec():
+            # Find the exe asset
+            asset_url = None
+            for asset in info['assets']:
+                if asset['name'].endswith('.exe'):
+                    asset_url = asset['browser_download_url']
+                    break
+            
+            if asset_url:
+                self.tray_icon.showMessage("PPT助手", "正在后台下载更新...", QSystemTrayIcon.MessageIcon.Information, 3000)
+                self.version_manager.download_and_install(asset_url)
+            else:
+                self.show_warning(None, "未找到可执行的更新文件")
+
+    def show_about_dialog(self):
+        version_info = self.version_manager.current_version_info
+        v_name = version_info.get('versionName', 'Unknown')
+        
+        w = MessageBox("关于 PPT助手", f"当前版本: {v_name}\n\n一个专注于演示辅助的工具。\n\nDesigned by Seirai.", self.get_parent_for_dialog())
+        w.exec()
+
+    def get_parent_for_dialog(self):
+        # MessageBox needs a parent window, but we are essentially hidden/tray based.
+        # We can use a dummy widget or None (if supported by qfluentwidgets)
+        # Using None might create a standalone window.
+        return None
 
     def closeEvent(self, event):
         self.timer.stop()
@@ -477,6 +534,7 @@ class BusinessLogicController(QWidget):
         else:
             self.spotlight.showFullScreen()
             
+
     def exit_slideshow(self):
         self.ppt_client.exit_show()
                 

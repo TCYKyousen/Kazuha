@@ -2,3 +2,6 @@ PyQt6
 pywin32
 psutil
 PyQt6-Fluent-Widgets
+requests
+packaging
+semver

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QSystemTrayIcon
 from PyQt6.QtCore import QTimer, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QIcon
 from qfluentwidgets import setTheme, Theme, SystemTrayMenu, Action
-from ui.widgets import AnnotationWidget, TimerWindow, LoadingOverlay
+from ui.widgets import AnnotationWidget, TimerWindow, LoadingOverlay, RippleOverlay
 from .ppt_client import PPTClient
 from .version_manager import VersionManager
 from qfluentwidgets import MessageBox, PushButton
@@ -70,6 +70,7 @@ class BusinessLogicController(QWidget):
         self.nav_left = None
         self.nav_right = None
         self.spotlight = None
+        self.clock_widget = None
         
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_state)
@@ -77,6 +78,32 @@ class BusinessLogicController(QWidget):
         
         self.widgets_visible = False
         self.slides_loaded = False
+        self.conflicting_process_running = False
+
+        self.process_check_timer = QTimer(self)
+        self.process_check_timer.timeout.connect(self.check_conflicting_processes)
+        self.process_check_timer.start(3000)
+
+    def check_conflicting_processes(self):
+        try:
+            import subprocess
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            output = subprocess.check_output('tasklist', startupinfo=startupinfo).decode('gbk', errors='ignore').lower()
+            running = ('classisland' in output) or ('classwidgets' in output)
+
+            if running:
+                if self.clock_widget and self.clock_widget.isVisible():
+                    self.clock_widget.hide()
+                if not self.conflicting_process_running and hasattr(self, "tray_icon"):
+                    self.tray_icon.showMessage("提示", "检测到 ClassIsland/ClassWidgets，已自动隐藏时钟组件。", QSystemTrayIcon.MessageIcon.Information, 2000)
+                self.conflicting_process_running = True
+            else:
+                if self.clock_widget and not self.clock_widget.isVisible() and self.widgets_visible:
+                    self.clock_widget.show()
+                self.conflicting_process_running = False
+        except Exception as e:
+            pass
     
     def setup_connections(self):
         """设置UI组件与业务逻辑之间的信号连接"""
@@ -237,8 +264,14 @@ class BusinessLogicController(QWidget):
     
     def set_theme_mode(self, theme):
         self.theme_mode = theme
+        
+        # Ensure qfluentwidgets theme is set
         setTheme(theme)
+        
+        # Save setting
         self.save_theme_setting(theme)
+        
+        # Update tray menu actions state
         if hasattr(self, "theme_auto_action"):
             self.theme_auto_action.setChecked(theme == Theme.AUTO)
         if hasattr(self, "theme_light_action"):
@@ -246,6 +279,7 @@ class BusinessLogicController(QWidget):
         if hasattr(self, "theme_dark_action"):
             self.theme_dark_action.setChecked(theme == Theme.DARK)
         
+        # Trigger update for all widgets
         self.update_widgets_theme()
             
     def update_widgets_theme(self):
@@ -256,7 +290,8 @@ class BusinessLogicController(QWidget):
             self.nav_left,
             self.nav_right,
             self.timer_window,
-            self.spotlight
+            self.spotlight,
+            self.clock_widget
         ]
         
         # Add optional widgets if they exist
@@ -281,12 +316,32 @@ class BusinessLogicController(QWidget):
             self.timer_window = TimerWindow()
             if hasattr(self.timer_window, 'set_theme'):
                 self.timer_window.set_theme(self.theme_mode)
+            if self.clock_widget:
+                self.timer_window.timer_state_changed.connect(self.on_timer_state_changed)
+                self.timer_window.countdown_finished.connect(self.on_countdown_finished)
+                self.timer_window.emit_state()
         if self.timer_window.isVisible():
             self.timer_window.hide()
         else:
             self.timer_window.show()
             self.timer_window.activateWindow()
             self.timer_window.raise_()
+    
+    def on_timer_state_changed(self, up_seconds, up_running, down_remaining, down_running):
+        if not self.clock_widget:
+            return
+        self.clock_widget.update_timer_state(up_seconds, up_running, down_remaining, down_running)
+        self.clock_widget.adjustSize()
+        if self.widgets_visible:
+            self.adjust_positions()
+    
+    def on_countdown_finished(self):
+        if not self.clock_widget:
+            return
+        self.clock_widget.show_countdown_finished()
+        self.clock_widget.adjustSize()
+        if self.widgets_visible:
+            self.adjust_positions()
     
     def toggle_annotation_mode(self):
         """切换独立批注模式"""
@@ -382,10 +437,11 @@ class BusinessLogicController(QWidget):
         self.toolbar.show()
         self.nav_left.show()
         self.nav_right.show()
+        if self.clock_widget and not self.conflicting_process_running:
+            self.clock_widget.show()
         self.adjust_positions()
         self.widgets_visible = True
         
-        # Trigger slide loading with overlay
         if not self.slides_loaded:
             self.start_loading_slides()
 
@@ -397,7 +453,6 @@ class BusinessLogicController(QWidget):
             presentation = self.ppt_client.app.ActivePresentation
             presentation_path = presentation.FullName
             
-            # Reset if path changed (simple check)
             if hasattr(self, 'last_presentation_path') and self.last_presentation_path != presentation_path:
                 self.slides_loaded = False
             self.last_presentation_path = presentation_path
@@ -409,65 +464,70 @@ class BusinessLogicController(QWidget):
             path_hash = hashlib.md5(presentation_path.encode('utf-8')).hexdigest()
             cache_dir = os.path.join(os.environ['APPDATA'], 'PPTAssistant', 'Cache', path_hash)
             
-            if not self.loading_overlay:
-                self.loading_overlay = LoadingOverlay()
-            
-            # Force show overlay
-            self.loading_overlay.show()
-            QApplication.processEvents() # Ensure it renders
-            
             self.loader_thread = SlideExportThread(cache_dir)
             self.loader_thread.finished.connect(self.on_slides_loaded)
             self.loader_thread.start()
             
         except Exception as e:
             print(f"Error starting slide load: {e}")
-            self.slides_loaded = True # Prevent loop
+            self.slides_loaded = True
 
     def on_slides_loaded(self):
-        if self.loading_overlay:
-            self.loading_overlay.hide()
         self.slides_loaded = True
 
     def change_pointer_mode(self, mode):
         self.ppt_client.set_pointer_type(mode)
-        # Update button state if needed, but toolbar handles its own exclusive group
-        # We might want to sync back if PPT changes mode externally, but that's for sync_state
 
     def hide_widgets(self):
         self.toolbar.hide()
         self.nav_left.hide()
         self.nav_right.hide()
+        if self.clock_widget:
+            self.clock_widget.hide()
         self.widgets_visible = False
 
     def adjust_positions(self):
-        screen = QApplication.primaryScreen().geometry()
+        if self.toolbar and self.toolbar.screen():
+            screen = self.toolbar.screen().geometry()
+        else:
+            screen = QApplication.primaryScreen().geometry()
         MARGIN = 20
+        left = screen.left()
+        top = screen.top()
+        width = screen.width()
+        height = screen.height()
+        right = left + width
+        bottom = top + height
         
-        # Toolbar: Bottom Center
         tb_w = self.toolbar.sizeHint().width()
         tb_h = self.toolbar.sizeHint().height()
+        tb_w = min(tb_w, width - 2 * MARGIN)
+        tb_x = left + (width - tb_w) // 2
+        tb_y = top + height - tb_h - MARGIN
+        self.toolbar.setGeometry(tb_x, tb_y, tb_w, tb_h)
         
-        self.toolbar.setGeometry(
-            (screen.width() - tb_w) // 2,
-            screen.height() - tb_h - MARGIN, # Flush bottom
-            tb_w, tb_h
-        )
         nav_w = self.nav_left.sizeHint().width()
         nav_h = self.nav_left.sizeHint().height()
-        y = screen.height() - nav_h - MARGIN
+        nav_y = top + height - nav_h - MARGIN
+        self.nav_left.setGeometry(left + MARGIN, nav_y, nav_w, nav_h)
+        self.nav_right.setGeometry(right - nav_w - MARGIN, nav_y, nav_w, nav_h)
         
-        self.nav_left.setGeometry(
-            MARGIN,
-            y,
-            nav_w, nav_h
-        )
-        
-        self.nav_right.setGeometry(
-            screen.width() - nav_w - MARGIN,
-            y,
-            nav_w, nav_h
-        )
+        if self.clock_widget:
+            self.clock_widget.adjustSize()
+            cw = self.clock_widget.width()
+            ch = self.clock_widget.height()
+            max_cw = max(50, width - 2 * MARGIN)
+            if cw > max_cw:
+                cw = max_cw
+            x = left + width - cw - MARGIN
+            y = top + MARGIN
+            min_x = left + MARGIN
+            min_y = top + MARGIN
+            if x < min_x:
+                x = min_x
+            if y < min_y:
+                y = min_y
+            self.clock_widget.setGeometry(x, y, cw, ch)
 
     def sync_state(self, view):
         try:

@@ -1,0 +1,60 @@
+name: Nightly Release
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  create-nightly-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set nightly tag
+        id: set_tag
+        run: |
+          $tag = "nightly-{0:yyyyMMdd}" -f (Get-Date).ToUniversalTime()
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build exe
+        run: |
+          pyinstaller --noconfirm --onefile --name Kazuha main.py
+
+      - name: Create nightly release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.TAG }}
+          release_name: ${{ env.TAG }}
+          prerelease: true
+          draft: false
+          body: Nightly build ${{ env.TAG }}
+
+      - name: Upload exe asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/Kazuha.exe
+          asset_name: Kazuha-${{ env.TAG }}.exe
+          asset_content_type: application/octet-stream
+
+

@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QApplication, QGraphicsDropShadowEffect
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor
 from qfluentwidgets import isDarkTheme
 
@@ -9,6 +9,9 @@ class DetachedFlyoutWindow(QWidget):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.show_anim = None
+        self.hide_anim = None
+        self._closing = False
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -63,10 +66,35 @@ class DetachedFlyoutWindow(QWidget):
 
         if y + h > screen.bottom():
             y = global_pos.y() - h - 5
-
+        
         self.move(x, y)
+        self.setWindowOpacity(0.0)
         self.show()
+        self.show_anim = QPropertyAnimation(self, b"windowOpacity", self)
+        self.show_anim.setDuration(160)
+        self.show_anim.setStartValue(0.0)
+        self.show_anim.setEndValue(1.0)
+        self.show_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.show_anim.start()
 
     def focusOutEvent(self, event):
         self.close()
         super().focusOutEvent(event)
+
+    def closeEvent(self, event):
+        if self._closing:
+            super().closeEvent(event)
+            return
+        event.ignore()
+        self.hide_anim = QPropertyAnimation(self, b"windowOpacity", self)
+        self.hide_anim.setDuration(160)
+        self.hide_anim.setStartValue(self.windowOpacity())
+        self.hide_anim.setEndValue(0.0)
+        self.hide_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+        self.hide_anim.finished.connect(self._finish_close)
+        self.hide_anim.start()
+
+    def _finish_close(self):
+        self._closing = True
+        self.close()
+        self._closing = False

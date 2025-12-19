@@ -4,9 +4,9 @@ from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QButtonGroup,
                              QLabel, QFrame, QPushButton, QGridLayout, QStackedWidget,
                              QScrollArea)
 from PyQt6.QtCore import (Qt, QSize, pyqtSignal, QEvent, QRect, QPropertyAnimation, 
-                          QEasingCurve, QAbstractAnimation, QTimer, QSequentialAnimationGroup, 
-                          QPoint, QThread)
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
+                          QEasingCurve, QAbstractAnimation, QTimer, QSequentialAnimationGroup, QDateTime, 
+                          QPoint, QThread, pyqtProperty, QPointF)
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QRadialGradient
 from qfluentwidgets import (TransparentToolButton, ToolButton, SpinBox,
                             PrimaryPushButton, PushButton, TabWidget,
                             ToolTipFilter, ToolTipPosition, Flyout, FlyoutAnimationType,
@@ -15,7 +15,10 @@ from qfluentwidgets import (TransparentToolButton, ToolButton, SpinBox,
                             BodyLabel, CaptionLabel, IndeterminateProgressRing,
                             SmoothScrollArea, FlowLayout)
 from qfluentwidgets.components.material import AcrylicFlyout
-from .detached_flyout import DetachedFlyoutWindow
+try:
+    from .detached_flyout import DetachedFlyoutWindow
+except ImportError:
+    from detached_flyout import DetachedFlyoutWindow
 
 def icon_path(name):
     base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -678,7 +681,6 @@ class SpotlightOverlay(QWidget):
         self.has_selection = False
         self.current_theme = Theme.DARK
         
-        # Close button (context aware)
         self.btn_close = TransparentToolButton(FluentIcon.CLOSE, self)
         self.btn_close.setFixedSize(32, 32)
         self.btn_close.setIconSize(QSize(12, 12))
@@ -690,18 +692,6 @@ class SpotlightOverlay(QWidget):
     def set_theme(self, theme):
         self.current_theme = theme
         self.update()
-        if theme == Theme.LIGHT:
-            # Light mode style for close button (when visible on top of overlay)
-            # Since overlay is dark (dimmed screen), close button should probably remain light/white for visibility?
-            # Or if it's on top of content...
-            # The overlay background is black with alpha. So white icon is best.
-            pass
-        
-        # We'll keep the close button style consistent: white on red or just white?
-        # Standard WinUI close is usually red on hover.
-        # TransparentToolButton handles this.
-        # But since we are on a dark overlay (0,0,0,180), we should force dark theme style for the button
-        # so it has white icon.
         self.btn_close.setIcon(FluentIcon.CLOSE)
         self.btn_close.setStyleSheet("""
             TransparentToolButton {
@@ -719,8 +709,6 @@ class SpotlightOverlay(QWidget):
         """)
 
     def mousePressEvent(self, event):
-        from PyQt6.QtGui import QMouseEvent
-        from PyQt6.QtCore import Qt
         if event.button() == Qt.MouseButton.RightButton:
             self.close()
         elif event.button() == Qt.MouseButton.LeftButton:
@@ -737,23 +725,19 @@ class SpotlightOverlay(QWidget):
             self.update()
             
     def mouseReleaseEvent(self, event):
-        from PyQt6.QtCore import Qt, QPoint
         if self.is_selecting:
             self.is_selecting = False
             self.has_selection = True
-            # Show close button near top-right of selection
             normalized_rect = self.selection_rect.normalized()
-            self.btn_close.move(normalized_rect.topRight() + QPoint(10, -15))
+            from PyQt6.QtCore import QPoint as _QPoint
+            self.btn_close.move(normalized_rect.topRight() + _QPoint(10, -15))
             self.btn_close.show()
             self.update()
             
     def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter, QColor, QPen
-        from PyQt6.QtCore import Qt
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        # Fill screen with semi-transparent color based on theme
         if self.current_theme == Theme.LIGHT:
             painter.setBrush(QColor(255, 255, 255, 180))
         else:
@@ -767,13 +751,57 @@ class SpotlightOverlay(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(self.selection_rect, 10, 10)
             
-            # Draw border
             painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
             painter.setBrush(Qt.BrushStyle.NoBrush)
             pen = QPen(QColor("#00cc7a"))
             pen.setWidth(3)
             painter.setPen(pen)
             painter.drawRoundedRect(self.selection_rect, 10, 10)
+
+
+class RippleOverlay(QWidget):
+    def __init__(self, center, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().geometry()
+        self.setGeometry(screen)
+        self.center = QPoint(center.x() - screen.left(), center.y() - screen.top())
+        self._radius = 0.0
+        self.max_radius = max(screen.width(), screen.height()) * 1.2
+        self.anim = QPropertyAnimation(self, b"radius", self)
+        self.anim.setDuration(800)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(self.max_radius)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.anim.finished.connect(self.close)
+
+    def start(self):
+        self.anim.start()
+
+    def get_radius(self):
+        return self._radius
+
+    def set_radius(self, value):
+        self._radius = float(value)
+        self.update()
+
+    radius = pyqtProperty(float, fget=get_radius, fset=set_radius)
+
+    def paintEvent(self, event):
+        if self._radius <= 0:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        center_f = QPointF(self.center)
+        gradient = QRadialGradient(center_f, self._radius)
+        color = QColor(212, 165, 165, 180)
+        gradient.setColorAt(0.0, color)
+        gradient.setColorAt(1.0, QColor(212, 165, 165, 0))
+        painter.setBrush(gradient)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(center_f, self._radius, self._radius)
 
 
 class PageNavWidget(QWidget):
@@ -786,6 +814,7 @@ class PageNavWidget(QWidget):
         self.ppt_app = None 
         self.is_right = is_right
         self.current_theme = Theme.DARK
+        self.slide_selector_window = None
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -797,11 +826,10 @@ class PageNavWidget(QWidget):
         self.container.setObjectName("Container")
         
         inner_layout = QHBoxLayout(self.container)
-        inner_layout.setContentsMargins(8, 6, 8, 6) 
-        inner_layout.setSpacing(15) 
+        inner_layout.setContentsMargins(8, 6, 8, 6)
+        inner_layout.setSpacing(15)
         
-        # Ensure consistent height
-        self.container.setMinimumHeight(52)
+        self.container.setMinimumHeight(56)
         self.btn_prev = TransparentToolButton(parent=self)
         self.btn_prev.setFixedSize(36, 36) 
         self.btn_prev.setIconSize(QSize(18, 18))
@@ -816,9 +844,10 @@ class PageNavWidget(QWidget):
         self.btn_next.installEventFilter(ToolTipFilter(self.btn_next, 1000, ToolTipPosition.TOP))
         self.btn_next.clicked.connect(self.next_clicked.emit)
 
-        # Page Info Clickable Area
         self.page_info_widget = QWidget()
         self.page_info_widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.page_info_widget.setObjectName("PageInfo")
+        self.page_info_widget.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.page_info_widget.installEventFilter(self)
         
         from PyQt6.QtWidgets import QVBoxLayout
@@ -828,7 +857,10 @@ class PageNavWidget(QWidget):
         info_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.lbl_page_num = QLabel("1/--")
+        self.lbl_page_num.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_page_num.setFixedWidth(80)
         self.lbl_page_text = QLabel("页码")
+        self.lbl_page_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         info_layout.addWidget(self.lbl_page_num, 0, Qt.AlignmentFlag.AlignCenter)
         info_layout.addWidget(self.lbl_page_text, 0, Qt.AlignmentFlag.AlignCenter)
@@ -837,12 +869,14 @@ class PageNavWidget(QWidget):
         
         self.line1 = QFrame()
         self.line1.setFrameShape(QFrame.Shape.VLine)
+        self.line1.setFixedHeight(24)
         inner_layout.addWidget(self.line1)
         
         inner_layout.addWidget(self.page_info_widget)
         
         self.line2 = QFrame()
         self.line2.setFrameShape(QFrame.Shape.VLine)
+        self.line2.setFixedHeight(24)
         inner_layout.addWidget(self.line2)
         
         inner_layout.addWidget(self.btn_next)
@@ -862,28 +896,37 @@ class PageNavWidget(QWidget):
             
         self.current_theme = theme
         
-        # Morandi Green Theme
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)"
             border_color = "rgba(0, 0, 0, 0.1)"
             text_color = "#333333"
             subtext_color = "#666666"
             line_color = "rgba(0, 0, 0, 0.1)"
-            accent_color = "#8BA88D"
+            indicator_color = "#D4A5A5"
+            indicator_hover = "rgba(212, 165, 165, 0.2)"
         else:
             bg_color = "rgba(30, 30, 30, 240)"
             border_color = "rgba(255, 255, 255, 0.1)"
             text_color = "white"
             subtext_color = "#aaaaaa"
             line_color = "rgba(255, 255, 255, 0.2)"
-            accent_color = "#5A7D59"
+            indicator_color = "#B38F8F"
+            indicator_hover = "rgba(179, 143, 143, 0.3)"
             
         self.container.setStyleSheet(f"""
             QWidget#Container {{
                 background-color: {bg_color};
                 border: 1px solid {border_color};
                 border-bottom: 1px solid {border_color};
-                border-radius: 12px;
+                border-radius: 28px;
+            }}
+            QWidget#PageInfo {{
+                border-radius: 18px;
+                background-color: transparent;
+            }}
+            QWidget#PageInfo:hover {{
+                background-color: {indicator_hover};
+                background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.17, fx:0.5, fy:0.5, stop:0 {indicator_color}, stop:1 transparent);
             }}
             QLabel {{
                 font-family: "Segoe UI", "Microsoft YaHei";
@@ -891,7 +934,7 @@ class PageNavWidget(QWidget):
             }}
         """)
         
-        self.lbl_page_num.setStyleSheet(f"font-size: 18px; font-weight: bold; color: {accent_color};")
+        self.lbl_page_num.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_color};")
         self.lbl_page_text.setStyleSheet(f"font-size: 12px; color: {subtext_color};")
         self.line1.setStyleSheet(f"color: {line_color};")
         self.line2.setStyleSheet(f"color: {line_color};")
@@ -904,23 +947,15 @@ class PageNavWidget(QWidget):
 
     def style_nav_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            # Morandi Green Accent
-            dot_color = "#8BA88D"
-            hover_bg = "rgba(139, 168, 141, 0.2)"
-            pressed_bg = "rgba(139, 168, 141, 0.4)"
+            dot_color = "#D4A5A5"
+            hover_bg = "rgba(212, 165, 165, 0.2)"
+            pressed_bg = "rgba(212, 165, 165, 0.4)"
             text_color = "#333333"
         else:
-            dot_color = "#5A7D59"
-            hover_bg = "rgba(90, 125, 89, 0.3)"
-            pressed_bg = "rgba(90, 125, 89, 0.5)"
+            dot_color = "#B38F8F"
+            hover_bg = "rgba(179, 143, 143, 0.3)"
+            pressed_bg = "rgba(179, 143, 143, 0.5)"
             text_color = "white"
-            
-        # Dot style: 
-        # Normal: 8px dot (radius 4px)
-        # Active/Hover: 12px dot (radius 6px)
-        # Button size is 36x36.
-        # 4px is approx 0.11 radius.
-        # 6px is approx 0.17 radius.
         
         btn.setStyleSheet(f"""
             TransparentToolButton {{
@@ -968,19 +1003,24 @@ class PageNavWidget(QWidget):
     def show_slide_selector(self):
         if not self.ppt_app:
             return
-            
+        if self.slide_selector_window and self.slide_selector_window.isVisible():
+            self.slide_selector_window.close()
+            self.slide_selector_window = None
+            return
         view = SlideSelectorFlyout(self.ppt_app)
         view.slide_selected.connect(self.request_slide_jump.emit)
-        
-        # Transparent background to let flyout window style show through
         view.setStyleSheet("SlideSelectorFlyout { background-color: transparent; }")
-
         win = DetachedFlyoutWindow(view, self)
         view.slide_selected.connect(win.close)
+        win.destroyed.connect(self.on_slide_selector_closed)
+        self.slide_selector_window = win
         win.show_at(self.page_info_widget)
 
+    def on_slide_selector_closed(self):
+        self.slide_selector_window = None
+
     def update_page(self, current, total):
-        self.lbl_page_num.setText(f"<html><head/><body><p><span style='font-size:18pt;'>{current}</span><span style='font-size:12pt;'>/{total}</span></p></body></html>")
+        self.lbl_page_num.setText(f"<html><head/><body><p><span style='font-size:14pt;'>{current}</span><span style='font-size:10pt;'>/{total}</span></p></body></html>")
     
     def apply_settings(self):
         self.btn_prev.setToolTip("上一页")
@@ -1001,7 +1041,10 @@ class ToolBarWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.current_theme = Theme.DARK
+        self.indicator = None
         self.was_checked = False
+        self.pen_settings_win = None
+        self.eraser_settings_win = None
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -1016,7 +1059,6 @@ class ToolBarWidget(QWidget):
         container_layout.setContentsMargins(8, 6, 8, 6) 
         container_layout.setSpacing(12) 
         
-        # Ensure consistent height
         self.container.setMinimumHeight(56)
         
         self.group = QButtonGroup(self)
@@ -1068,6 +1110,9 @@ class ToolBarWidget(QWidget):
         self.setLayout(layout)
         
         self.btn_arrow.setChecked(True)
+        self.indicator = QFrame(self.container)
+        self.indicator.setFixedHeight(2)
+        self.indicator.hide()
         
         # Install event filter to detect second click for expansion
         self.btn_pen.installEventFilter(self)
@@ -1105,28 +1150,41 @@ class ToolBarWidget(QWidget):
 
     def mousePressEvent(self, event):
         super().mousePressEvent(event)
+        self.update_indicator_for_current()
 
     def show_pen_settings(self):
+        if self.pen_settings_win and self.pen_settings_win.isVisible():
+            self.pen_settings_win.close()
+            self.pen_settings_win = None
+            return
         view = PenSettingsFlyout(self)
         view.color_selected.connect(self.request_pen_color.emit)
-        
-        # Transparent to let mica show through
         view.setStyleSheet("background-color: transparent;")
-        
         win = DetachedFlyoutWindow(view, self)
         view.color_selected.connect(win.close)
+        win.destroyed.connect(self.on_pen_settings_closed)
+        self.pen_settings_win = win
         win.show_at(self.btn_pen)
 
     def show_eraser_settings(self):
+        if self.eraser_settings_win and self.eraser_settings_win.isVisible():
+            self.eraser_settings_win.close()
+            self.eraser_settings_win = None
+            return
         view = EraserSettingsFlyout(self)
         view.clear_all_clicked.connect(self.request_clear_ink.emit)
-        
-        # Transparent to let mica show through
         view.setStyleSheet("background-color: transparent;")
-        
         win = DetachedFlyoutWindow(view, self)
         view.clear_all_clicked.connect(win.close)
+        win.destroyed.connect(self.on_eraser_settings_closed)
+        self.eraser_settings_win = win
         win.show_at(self.btn_eraser)
+
+    def on_pen_settings_closed(self):
+        self.pen_settings_win = None
+
+    def on_eraser_settings_closed(self):
+        self.eraser_settings_win = None
 
     def set_theme(self, theme):
         if theme == Theme.AUTO:
@@ -1135,7 +1193,6 @@ class ToolBarWidget(QWidget):
             
         self.current_theme = theme
         
-        # Morandi Green Theme
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)"
             border_color = "rgba(0, 0, 0, 0.1)"
@@ -1152,7 +1209,7 @@ class ToolBarWidget(QWidget):
                 background-color: {bg_color};
                 border: 1px solid {border_color};
                 border-bottom: 1px solid {border_color};
-                border-radius: 20px; /* Rounded container */
+                border-radius: 28px;
             }}
         """)
         
@@ -1171,6 +1228,11 @@ class ToolBarWidget(QWidget):
         ]:
             btn.setIcon(get_icon(icon_name, theme))
             self.style_tool_btn(btn, theme) if btn.isCheckable() else self.style_action_btn(btn, theme)
+        
+        indicator_color = "#D4A5A5" if theme == Theme.LIGHT else "#B38F8F"
+        if self.indicator:
+            self.indicator.setStyleSheet(f"background-color: {indicator_color}; border-radius: 1px;")
+            self.update_indicator_for_current()
 
     def create_tool_btn(self, text, icon_name):
         btn = TransparentToolButton(parent=self)
@@ -1180,7 +1242,7 @@ class ToolBarWidget(QWidget):
         btn.setCheckable(True)
         btn.setToolTip(text)
         btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
-        # Style will be set in set_theme
+        btn.toggled.connect(self.on_tool_btn_toggled)
         return btn
         
     def create_action_btn(self, text, icon_name):
@@ -1195,62 +1257,74 @@ class ToolBarWidget(QWidget):
     
     def style_tool_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            hover_bg = "rgba(139, 168, 141, 0.2)"
-            checked_bg = "transparent"
+            hover_bg = "rgba(0, 0, 0, 0.05)"
+            checked_bg = "rgba(0, 0, 0, 0.08)"
             text_color = "#333333"
-            dot_color = "#8BA88D"
         else:
-            hover_bg = "rgba(90, 125, 89, 0.3)"
-            checked_bg = "transparent"
+            hover_bg = "rgba(255, 255, 255, 0.05)"
+            checked_bg = "rgba(255, 255, 255, 0.08)"
             text_color = "white"
-            dot_color = "#5A7D59"
             
-        # Using radial gradient to simulate a dot at the bottom
-        # cx, cy is center. 0.5, 0.85 puts it near bottom.
-        # radius 5px (approx 0.12 of 40px width) -> 10px diameter.
-        # User asked for 8px/12px.
-        
         btn.setStyleSheet(f"""
             TransparentToolButton {{
-                border-radius: 6px;
+                border-radius: 20px;
                 border: none;
                 background-color: transparent;
                 color: {text_color};
-                margin-bottom: 2px;
+                margin: 2px;
             }}
             TransparentToolButton:hover {{
                 background-color: {hover_bg};
-                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.1, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:checked {{
                 background-color: {checked_bg};
                 color: {text_color};
-                border: none;
-                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.15, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
             }}
             TransparentToolButton:checked:hover {{
-                background-color: {hover_bg};
-                background-image: qradialgradient(spread:pad, cx:0.5, cy:0.85, radius:0.15, fx:0.5, fy:0.85, stop:0 {dot_color}, stop:1 transparent);
+                background-color: {checked_bg};
             }}
         """)
     
+    def on_tool_btn_toggled(self, checked):
+        if not checked:
+            return
+        btn = self.sender()
+        self.update_indicator_geometry(btn)
+    
+    def update_indicator_for_current(self):
+        for btn in (self.btn_arrow, self.btn_pen, self.btn_eraser):
+            if btn.isChecked():
+                self.update_indicator_geometry(btn)
+                return
+        if self.indicator:
+            self.indicator.hide()
+    
+    def update_indicator_geometry(self, btn):
+        if not self.indicator or not btn or not btn.isVisible():
+            return
+        indicator_width = int(btn.width() * 0.6)
+        if indicator_width <= 0:
+            indicator_width = btn.width()
+        h = self.indicator.height()
+        x = btn.x() + (btn.width() - indicator_width) // 2
+        y = self.container.height() - h - 4
+        self.indicator.setGeometry(x, y, indicator_width, h)
+        self.indicator.show()
+    
     def style_action_btn(self, btn, theme):
         if theme == Theme.LIGHT:
-            # Morandi Green hints for Light Theme
-            hover_bg = "rgba(139, 168, 141, 0.2)" # Subtle green tint
-            pressed_bg = "rgba(139, 168, 141, 0.3)"
+            hover_bg = "rgba(212, 165, 165, 0.2)"
+            pressed_bg = "rgba(212, 165, 165, 0.3)"
             text_color = "#333333"
         else:
-            # Morandi Green hints for Dark Theme
-            hover_bg = "rgba(90, 125, 89, 0.3)"
-            pressed_bg = "rgba(90, 125, 89, 0.4)"
+            hover_bg = "rgba(179, 143, 143, 0.3)"
+            pressed_bg = "rgba(179, 143, 143, 0.4)"
             text_color = "white"
             
-        # Special case for exit button hover color
         if btn == self.btn_exit:
              btn.setStyleSheet(f"""
                 TransparentToolButton {{
-                    border-radius: 6px;
+                    border-radius: 20px;
                     border: none;
                     background-color: transparent;
                     color: {text_color};
@@ -1265,7 +1339,7 @@ class ToolBarWidget(QWidget):
         else:
             btn.setStyleSheet(f"""
                 TransparentToolButton {{
-                    border-radius: 6px;
+                    border-radius: 20px;
                     border: none;
                     background-color: transparent;
                     color: {text_color};
@@ -1295,7 +1369,122 @@ class ToolBarWidget(QWidget):
         btn.pressed.connect(on_pressed)
 
 
+class ClockWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.current_theme = Theme.DARK
+        self.countdown_finished = False
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.container = QWidget()
+        self.container.setObjectName("Container")
+        self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.container.setMinimumHeight(40)
+        
+        inner_layout = QHBoxLayout(self.container)
+        inner_layout.setContentsMargins(16, 8, 16, 8)
+        inner_layout.setSpacing(6)
+        
+        self.lbl_time = QLabel()
+        self.lbl_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_extra = QLabel()
+        self.lbl_extra.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_extra.setObjectName("Extra")
+        self.lbl_extra.hide()
+        inner_layout.addWidget(self.lbl_time)
+        inner_layout.addWidget(self.lbl_extra)
+        
+        layout.addWidget(self.container)
+        self.setLayout(layout)
+        
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_time)
+        self.timer.start(1000)
+        
+        self.update_time()
+        self.set_theme(Theme.AUTO)
+        
+    def update_time(self):
+        now = QDateTime.currentDateTime()
+        hour = now.time().hour()
+        minute = now.time().minute()
+        period = "上午" if hour < 12 else "下午"
+        time_str = f"{period} {hour:02d}:{minute:02d}"
+        self.lbl_time.setText(time_str)
+        
+    def format_time(self, seconds):
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        s = seconds % 60
+        if h > 0:
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{m:02d}:{s:02d}"
+
+    def update_timer_state(self, up_seconds, up_running, down_remaining, down_running):
+        if up_running or down_running:
+            self.countdown_finished = False
+        elif self.countdown_finished:
+            self.lbl_extra.setText("倒计时已结束")
+            self.lbl_extra.setVisible(True)
+            return
+        parts = []
+        if up_running:
+            parts.append(f"↑ {self.format_time(up_seconds)}")
+        if down_running:
+            parts.append(f"↓ {self.format_time(down_remaining)}")
+        text = "  ".join(parts)
+        self.lbl_extra.setText(text)
+        self.lbl_extra.setVisible(bool(text))
+    
+    def show_countdown_finished(self):
+        self.countdown_finished = True
+        self.lbl_extra.setText("倒计时已结束")
+        self.lbl_extra.setVisible(True)
+        
+    def set_theme(self, theme):
+        if theme == Theme.AUTO:
+            import qfluentwidgets
+            theme = qfluentwidgets.theme()
+            
+        self.current_theme = theme
+        
+        if theme == Theme.LIGHT:
+            bg_color = "rgba(255, 255, 255, 240)"
+            border_color = "rgba(0, 0, 0, 0.1)"
+            text_color = "#333333"
+        else:
+            bg_color = "rgba(30, 30, 30, 240)"
+            border_color = "rgba(255, 255, 255, 0.1)"
+            text_color = "white"
+            
+        self.container.setStyleSheet(f"""
+            QWidget#Container {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-bottom: 1px solid {border_color};
+                border-radius: 20px;
+            }}
+            QLabel {{
+                font-family: "Segoe UI", "Microsoft YaHei";
+                font-size: 16px;
+                font-weight: bold;
+                color: {text_color};
+            }}
+            QLabel#Extra {{
+                font-size: 11px;
+                font-weight: normal;
+            }}
+        """)
+
+
 class TimerWindow(QWidget):
+    timer_state_changed = pyqtSignal(int, bool, int, bool)
+    countdown_finished = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_theme = Theme.DARK
@@ -1360,6 +1549,7 @@ class TimerWindow(QWidget):
         self.set_theme(Theme.DARK)
         
         self.pivot.setCurrentItem("up")
+        self.emit_state()
 
     def on_pivot_changed(self, route_key):
         if route_key == "up":
@@ -1583,6 +1773,9 @@ class TimerWindow(QWidget):
             self.player.stop()
             self.player.play()
 
+    def emit_state(self):
+        self.timer_state_changed.emit(self.up_seconds, self.up_running, self.down_remaining, self.down_running)
+
     def format_time(self, seconds):
         h = seconds // 3600
         m = (seconds % 3600) // 60
@@ -1600,6 +1793,7 @@ class TimerWindow(QWidget):
             self.up_timer.stop()
             self.up_running = False
             self.up_start_btn.setText("开始")
+        self.emit_state()
 
     def reset_up(self):
         self.up_timer.stop()
@@ -1607,16 +1801,16 @@ class TimerWindow(QWidget):
         self.up_seconds = 0
         self.up_start_btn.setText("开始")
         self.up_label.setText(self.format_time(self.up_seconds))
+        self.emit_state()
 
     def update_up(self):
         self.up_seconds += 1
         self.up_label.setText(self.format_time(self.up_seconds))
+        self.emit_state()
 
     def toggle_down(self):
         if not self.down_running:
-            # Check if we are resuming or starting new
             if self.down_remaining <= 0 and self.down_total_seconds == 0:
-                # Start new
                 minutes = self.down_min_spin.value()
                 seconds = self.down_sec_spin.value()
                 total = minutes * 60 + seconds
@@ -1637,6 +1831,7 @@ class TimerWindow(QWidget):
             self.down_timer.stop()
             self.down_running = False
             self.down_start_btn.setText("开始")
+        self.emit_state()
 
     def reset_down(self):
         self.down_timer.stop()
@@ -1645,14 +1840,15 @@ class TimerWindow(QWidget):
         self.down_total_seconds = 0
         self.down_start_btn.setText("开始")
         
-        # Show input again
         self.down_label.hide()
         self.input_widget.show()
+        self.emit_state()
 
     def update_down(self):
         if self.down_remaining > 0:
             self.down_remaining -= 1
             self.down_label.setText(self.format_time(self.down_remaining))
+            self.emit_state()
         
         if self.down_remaining <= 0 and self.down_running:
             self.down_timer.stop()
@@ -1662,3 +1858,5 @@ class TimerWindow(QWidget):
             self.stack.setCurrentWidget(self.completed_page)
             self.play_ring()
             self.shake_window()
+            self.countdown_finished.emit()
+            self.emit_state()

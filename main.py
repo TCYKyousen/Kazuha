@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import QApplication
 from controllers.business_logic import BusinessLogicController
-from ui.widgets import ToolBarWidget, PageNavWidget, SpotlightOverlay
+from ui.widgets import ToolBarWidget, PageNavWidget, SpotlightOverlay, ClockWidget
 
 def main():
     # Enable high DPI scaling
@@ -17,6 +17,7 @@ def main():
     controller.toolbar = ToolBarWidget()
     controller.nav_left = PageNavWidget(is_right=False)
     controller.nav_right = PageNavWidget(is_right=True)
+    controller.clock_widget = ClockWidget()
     controller.spotlight = SpotlightOverlay()
     
     # Setup connections between UI and business logic

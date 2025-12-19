@@ -34,26 +34,16 @@ jobs:
       - name: Build exe
         run: pyinstaller --noconfirm --noconsole --onefile --name Kazuha main.py --add-data "icons;icons" --add-data "ui/timer_ring.ogg;ui"
 
-      - name: Create nightly release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create nightly release and upload asset
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ env.TAG }}
-          release_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
           prerelease: true
           draft: false
           body: Nightly build ${{ env.TAG }}
-
-      - name: Upload exe asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/Kazuha.exe
-          asset_name: Kazuha-${{ env.TAG }}.exe
-          asset_content_type: application/octet-stream
+          files: dist/Kazuha.exe
 
 

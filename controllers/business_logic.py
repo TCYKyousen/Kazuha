@@ -127,12 +127,12 @@ class BusinessLogicController(QWidget):
     
     def setup_tray(self):
         """设置系统托盘图标和菜单"""
-        # 导入图标路径函数
         import sys
         import os
         def icon_path(name):
             base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-            # 返回上级目录的icons文件夹路径
+            if hasattr(sys, "_MEIPASS"):
+                return os.path.join(base_dir, "icons", name)
             return os.path.join(os.path.dirname(base_dir), "icons", name)
         
         self.tray_icon = QSystemTrayIcon(self)

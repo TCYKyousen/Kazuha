@@ -32,8 +32,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build exe
-        run: |
-          pyinstaller --noconfirm --onefile --name Kazuha main.py
+        run: pyinstaller --noconfirm --noconsole --onefile --name Kazuha main.py --add-data "icons;icons" --add-data "ui/timer_ring.ogg;ui"
 
       - name: Create nightly release
         id: create_release

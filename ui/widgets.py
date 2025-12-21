@@ -13,7 +13,8 @@ from qfluentwidgets import (TransparentToolButton, ToolButton, SpinBox,
                             Pivot, SegmentedWidget, TimePicker, Theme, isDarkTheme,
                             FluentIcon, StrongBodyLabel, TitleLabel, LargeTitleLabel,
                             BodyLabel, CaptionLabel, IndeterminateProgressRing,
-                            SmoothScrollArea, FlowLayout, SwitchButton, MessageBox, MessageDialog)
+                            SmoothScrollArea, FlowLayout, SwitchButton, MessageBox, MessageDialog,
+                            ComboBox)
 from qfluentwidgets.components.material import AcrylicFlyout
 HEIGHT_BAR = 60
 
@@ -264,39 +265,10 @@ class LoadingOverlay(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Smoke layer
         painter.setBrush(QColor(0, 0, 0, 128)) 
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRect(self.rect())
 
-
-class SlideLoaderThread(QThread):
-    slide_loaded = pyqtSignal(int, str)
-    finished = pyqtSignal()
-
-    def __init__(self, ppt_app, cache_dir, parent=None):
-        super().__init__(parent)
-        self.ppt_app = ppt_app
-        self.cache_dir = cache_dir
-        self._is_running = True
-
-    def run(self):
-        try:
-            # COM objects cannot be shared across threads directly in some cases,
-            # but usually reading properties like count is fine if initialized.
-            # However, PowerPoint COM is Single Threaded Apartment (STA).
-            # Accessing it from a worker thread without marshalling is risky/wrong.
-            # A better approach for the worker is to only handle the *image loading* 
-            # if we had the paths, but we need to *generate* the images via Export.
-            # Exporting MUST run on the main thread or be marshalled.
-            
-            # Since we cannot easily block the main thread, and we cannot easily call COM from thread
-            # without complex setup, we will use a different strategy:
-            # We will use a timer in the main thread to process slides in chunks (e.g. 1 per frame),
-            # preventing UI freeze.
-            pass
-        except Exception as e:
-            print(f"Error in loader thread: {e}")
 
 class SlideSelectorFlyout(QWidget):
     slide_selected = pyqtSignal(int)
@@ -403,7 +375,7 @@ class SlideSelectorFlyout(QWidget):
         self.slide_selected.emit(index)
 
 
-class CompatibilityAnnotationWidget(QWidget):
+class AnnotationWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
@@ -691,65 +663,7 @@ class CompatibilityAnnotationWidget(QWidget):
 
 
 
-class AnnotationWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        from PyQt6.QtWidgets import QApplication
-        self.setGeometry(QApplication.primaryScreen().geometry()) # type: ignore
-        
-        self.drawing = False
-        self.last_point = None
-        self.pen_color = Qt.GlobalColor.red
-        self.pen_width = 3
-        
-        # Close button
-        self.btn_close = QPushButton("X", self)
-        self.btn_close.setFixedSize(30, 30)
-        self.btn_close.setStyleSheet("background-color: red; color: white; border-radius: 0px; font-weight: bold;")
-        self.btn_close.hide()
-        self.btn_close.clicked.connect(self.close)
-        
-    def set_pen_color(self, color):
-        self.pen_color = color
-        
-    def set_pen_width(self, width):
-        self.pen_width = width
-        
-    def mousePressEvent(self, event):
-        from PyQt6.QtCore import Qt
-        if event.button() == Qt.MouseButton.RightButton:
-            self.close()
-        elif event.button() == Qt.MouseButton.LeftButton:
-            self.drawing = True
-            self.last_point = event.pos()
-            
-    def mouseMoveEvent(self, event):
-        if self.drawing and self.last_point:
-            from PyQt6.QtGui import QPainter, QPen
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            pen = QPen(self.pen_color, self.pen_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(pen)
-            painter.drawLine(self.last_point, event.pos())
-            self.last_point = event.pos()
-            self.update()
-            
-    def mouseReleaseEvent(self, event):
-        from PyQt6.QtCore import Qt, QPoint
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.drawing = False
-            self.last_point = None
-            
-    def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Paint implementation would go here if needed
 
-    def set_theme(self, theme):
-        pass
 
 
 class SpotlightOverlay(QWidget):
@@ -1089,7 +1003,6 @@ class PageNavWidget(QWidget):
             anim.start()
 
         btn.pressed.connect(on_pressed)
-
     
     def eventFilter(self, obj, event):
         if obj == self.page_info_widget:
@@ -1349,20 +1262,13 @@ class ToolBarWidget(QWidget):
             text_color = "white"
             line_color = "rgba(255, 255, 255, 0.2)"
             
-        # [修改] 统一圆角为 25px，对应 50px 高度 (dynamic now)
-        border_radius = self.container.height() // 2
-        
+        # [修改] 统一圆角为 25px，对应 50px 高度
         self.container.setStyleSheet(f"""
             QWidget#Container {{
                 background-color: {bg_color};
                 border: 1px solid {border_color};
                 border-bottom: 1px solid {border_color};
-                border-radius: {border_radius}px;
-            }}
-            QLabel {{
-                color: {text_color};
-                background: transparent;
-                border: none;
+                border-radius: 25px;
             }}
         """)
         
@@ -1504,12 +1410,8 @@ class ToolBarWidget(QWidget):
         indicator_width = int(btn.width() * 0.6)
         if indicator_width <= 0:
             indicator_width = btn.width()
-        
-        # Map button position to container coordinates
-        pos = btn.mapTo(self.container, QPoint(0, 0))
-        
         h = self.indicator.height()
-        x = pos.x() + (btn.width() - indicator_width) // 2
+        x = btn.x() + (btn.width() - indicator_width) // 2
         y = self.container.height() - h - 4
         self.indicator.setGeometry(x, y, indicator_width, h)
         self.indicator.show()
@@ -1574,7 +1476,6 @@ class ToolBarWidget(QWidget):
             anim.start()
 
         btn.pressed.connect(on_pressed)
-
 
 
 class ClockWidget(QWidget):
@@ -1917,8 +1818,22 @@ class TimerWindow(QWidget):
         post_layout.addStretch()
         post_layout.addWidget(self.post_rem_switch)
         
+        # Ringtone settings
+        ringtone_layout = QHBoxLayout()
+        ringtone_layout.setContentsMargins(0,0,0,0)
+        ringtone_label = BodyLabel("铃声:", self)
+        
+        self.ringtone_combo = ComboBox()
+        self.ringtone_combo.setFixedWidth(160)
+        self.populate_ringtones()
+        
+        ringtone_layout.addWidget(ringtone_label)
+        ringtone_layout.addStretch()
+        ringtone_layout.addWidget(self.ringtone_combo)
+        
         voice_layout.addLayout(pre_layout)
         voice_layout.addLayout(post_layout)
+        voice_layout.addLayout(ringtone_layout)
         
         layout.addStretch()
         layout.addWidget(self.input_widget)
@@ -1953,7 +1868,14 @@ class TimerWindow(QWidget):
         effect = self.property("windowEffect")
         is_transparent = effect in ["Mica", "Acrylic"]
         
-        if theme == Theme.LIGHT:
+        # Resolve AUTO theme
+        if theme == Theme.AUTO:
+            import qfluentwidgets
+            actual_theme = qfluentwidgets.theme()
+        else:
+            actual_theme = theme
+
+        if actual_theme == Theme.LIGHT:
             bg_color = "rgba(243, 243, 243, 0.95)" if not is_transparent else "rgba(243, 243, 243, 0.1)"
             border_color = "rgba(0, 0, 0, 0.05)"
             text_color = "#333333"
@@ -1994,6 +1916,9 @@ class TimerWindow(QWidget):
         self.drag_pos = None
 
     def shake_window(self):
+        if hasattr(self, 'shake_anim') and self.shake_anim.state() == QAbstractAnimation.State.Running:
+            return
+
         self.shake_anim = QSequentialAnimationGroup(self)
         original_pos = self.pos()
         offset = 10
@@ -2027,18 +1952,31 @@ class TimerWindow(QWidget):
         cycle_anim.addAnimation(anim3)
         
         if loop_count == -1:
-            self.shake_anim.setLoopCount(0) # 0 means infinite in some contexts, but let's check docs or use loop
-            # QSequentialAnimationGroup doesn't have setLoopCount directly in all Qt versions, 
-            # but we can re-start on finished if needed.
-            # Actually QAbstractAnimation has setLoopCount.
-            self.shake_anim.addAnimation(cycle_anim)
             self.shake_anim.setLoopCount(-1) 
+            self.shake_anim.addAnimation(cycle_anim)
         else:
              # Add multiple cycles
              for _ in range(loop_count):
                  self.shake_anim.addAnimation(cycle_anim)
             
         self.shake_anim.start()
+
+    def populate_ringtones(self):
+        self.ringtone_combo.clear()
+        self.ringtone_combo.addItem("默认", "StrongTimerRing")
+        
+        # Scan folder
+        import os
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ring_dir = os.path.join(base_dir, "StrongTimerRingRingtones")
+        if not os.path.exists(ring_dir):
+            os.makedirs(ring_dir)
+            
+        for file in os.listdir(ring_dir):
+            if file.lower().endswith(('.ogg', '.mp3', '.wav')):
+                name = os.path.splitext(file)[0]
+                path = os.path.join(ring_dir, file)
+                self.ringtone_combo.addItem(name, path)
 
     def on_strong_reminder_toggled(self, checked):
         if checked:

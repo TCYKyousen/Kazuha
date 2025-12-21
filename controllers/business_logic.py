@@ -35,6 +35,7 @@ from .version_manager import VersionManager
 from .sound_manager import SoundManager
 import pythoncom
 import os
+import time
 from typing import Optional
 from datetime import datetime
 
@@ -118,6 +119,7 @@ class SlideExportThread(QThread):
                     if not os.path.exists(thumb_path):
                         try:
                             presentation.Slides(i).Export(thumb_path, "JPG", 320, 180)
+                            time.sleep(0.01) # Yield CPU
                         except:
                             pass
         except Exception as e:
@@ -709,7 +711,14 @@ class BusinessLogicController(QWidget):
             self.sound_manager.speak("倒计时结束")
 
         if self.timer_window and self.timer_window.strong_reminder_mode:
-            self.sound_manager.play("StrongTimerRing", loop=True)
+            # Check for custom ringtone
+            ring_data = self.timer_window.ringtone_combo.currentData()
+            if ring_data and ring_data != "StrongTimerRing":
+                # It's a path
+                self.sound_manager.play("CustomRing", loop=True, custom_path=ring_data)
+            else:
+                self.sound_manager.play("StrongTimerRing", loop=True)
+                
             # Force show timer window
             if not self.timer_window.isVisible():
                 self.toggle_timer_window()
@@ -744,6 +753,7 @@ class BusinessLogicController(QWidget):
 
     def on_timer_reset(self):
         self.sound_manager.stop("StrongTimerRing")
+        self.sound_manager.stop("CustomRing") # Stop custom ring too
         self.sound_manager.stop("TimerRing")
         self.sound_manager.play("Reset")
         if hasattr(self, 'mask_overlay') and self.mask_overlay:

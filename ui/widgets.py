@@ -2,14 +2,14 @@ import sys
 import os
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QButtonGroup, 
                              QLabel, QFrame, QPushButton, QGridLayout, QStackedWidget,
-                             QScrollArea, QMenu)
+                             QScrollArea)
 from PyQt6.QtCore import (Qt, QSize, pyqtSignal, QEvent, QRect, QPropertyAnimation, 
                           QEasingCurve, QAbstractAnimation, QTimer, QSequentialAnimationGroup, QDateTime, 
                           QPoint, QThread, pyqtProperty, QPointF)
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QRadialGradient, QAction
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QRadialGradient
 from qfluentwidgets import (TransparentToolButton, ToolButton, SpinBox,
                             PrimaryPushButton, PushButton, TabWidget,
-                            ToolTipFilter, ToolTipPosition, Flyout, FlyoutAnimationType,
+                            Flyout, FlyoutAnimationType,
                             Pivot, SegmentedWidget, TimePicker, Theme, isDarkTheme,
                             FluentIcon, StrongBodyLabel, TitleLabel, LargeTitleLabel,
                             BodyLabel, CaptionLabel, IndeterminateProgressRing,
@@ -23,8 +23,11 @@ except ImportError:
     from detached_flyout import DetachedFlyoutWindow
 
 def icon_path(name):
-    base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    # 返回上级目录的icons文件夹路径
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, "icons", name)
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Return path to icons folder in parent directory
     return os.path.join(os.path.dirname(base_dir), "icons", name)
 
 def get_icon(name, theme=Theme.DARK):
@@ -267,6 +270,34 @@ class LoadingOverlay(QWidget):
         painter.drawRect(self.rect())
 
 
+class SlideLoaderThread(QThread):
+    slide_loaded = pyqtSignal(int, str)
+    finished = pyqtSignal()
+
+    def __init__(self, ppt_app, cache_dir, parent=None):
+        super().__init__(parent)
+        self.ppt_app = ppt_app
+        self.cache_dir = cache_dir
+        self._is_running = True
+
+    def run(self):
+        try:
+            # COM objects cannot be shared across threads directly in some cases,
+            # but usually reading properties like count is fine if initialized.
+            # However, PowerPoint COM is Single Threaded Apartment (STA).
+            # Accessing it from a worker thread without marshalling is risky/wrong.
+            # A better approach for the worker is to only handle the *image loading* 
+            # if we had the paths, but we need to *generate* the images via Export.
+            # Exporting MUST run on the main thread or be marshalled.
+            
+            # Since we cannot easily block the main thread, and we cannot easily call COM from thread
+            # without complex setup, we will use a different strategy:
+            # We will use a timer in the main thread to process slides in chunks (e.g. 1 per frame),
+            # preventing UI freeze.
+            pass
+        except Exception as e:
+            print(f"Error in loader thread: {e}")
+
 class SlideSelectorFlyout(QWidget):
     slide_selected = pyqtSignal(int)
     
@@ -296,12 +327,19 @@ class SlideSelectorFlyout(QWidget):
         self.scroll_area.setWidget(self.container)
         layout.addWidget(self.scroll_area)
         
-        # We will load slides in background if possible, but here we just trigger load
-        QTimer.singleShot(10, self.load_slides)
+        self.loading_label = BodyLabel("正在加载...", self)
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.loading_label)
+        
+        # Chunked loading
+        self.current_load_index = 1
+        self.total_slides = 0
+        self.cache_dir = ""
+        
+        QTimer.singleShot(10, self.start_loading)
         
     def get_cache_dir(self, presentation_path):
         import hashlib
-        import os
         try:
             path_hash = hashlib.md5(presentation_path.encode('utf-8')).hexdigest()
         except:
@@ -311,32 +349,55 @@ class SlideSelectorFlyout(QWidget):
             os.makedirs(cache_dir)
         return cache_dir
 
-    def load_slides(self):
+    def start_loading(self):
         try:
             presentation = self.ppt_app.ActivePresentation
-            slides_count = presentation.Slides.Count
+            self.total_slides = presentation.Slides.Count
             presentation_path = presentation.FullName
-            cache_dir = self.get_cache_dir(presentation_path)
+            self.cache_dir = self.get_cache_dir(presentation_path)
+            self.current_load_index = 1
             
-            for i in range(1, slides_count + 1):
-                slide = presentation.Slides(i)
-                thumb_path = os.path.join(cache_dir, f"slide_{i}.jpg")
+            # Start chunked loading
+            self.load_timer = QTimer(self)
+            self.load_timer.timeout.connect(self.process_next_chunk)
+            self.load_timer.start(10) # Process every 10ms
+            
+        except Exception as e:
+            self.loading_label.setText(f"加载失败: {str(e)}")
+
+    def process_next_chunk(self):
+        try:
+            if self.current_load_index > self.total_slides:
+                self.load_timer.stop()
+                self.loading_label.hide()
+                return
+
+            # Process 2 slides per tick to balance speed and responsiveness
+            for _ in range(2):
+                if self.current_load_index > self.total_slides:
+                    break
+                    
+                i = self.current_load_index
+                thumb_path = os.path.join(self.cache_dir, f"slide_{i}.jpg")
                 
-                # Check if exists (assuming cache is handled by BusinessLogic or previous run)
-                # If not, we might lag here exporting. 
-                # Ideally BusinessLogic pre-caches.
+                # Check cache first
                 if not os.path.exists(thumb_path):
                     try:
-                        slide.Export(thumb_path, "JPG", 320, 180) 
+                        # This COM call is on main thread, but fast enough for single slide usually
+                        self.ppt_app.ActivePresentation.Slides(i).Export(thumb_path, "JPG", 320, 180)
                     except:
                         pass
-                    
-                card = SlidePreviewCard(i, thumb_path)
-                card.clicked.connect(self.on_card_clicked)
-                self.flow.addWidget(card)
+                
+                if os.path.exists(thumb_path):
+                    card = SlidePreviewCard(i, thumb_path)
+                    card.clicked.connect(self.on_card_clicked)
+                    self.flow.addWidget(card)
+                
+                self.current_load_index += 1
                 
         except Exception as e:
-            print(f"Error loading slides: {e}")
+            print(f"Error loading slide chunk: {e}")
+            self.load_timer.stop()
             
     def on_card_clicked(self, index):
         self.slide_selected.emit(index)
@@ -361,6 +422,10 @@ class CompatibilityAnnotationWidget(QWidget):
         self.lines = []
         self.current_line = None
         
+        # 缓存
+        self._buffer_pixmap = None
+        self._dirty = False
+        
         # 橡皮擦大小
         self.eraser_size = 20
         
@@ -368,7 +433,113 @@ class CompatibilityAnnotationWidget(QWidget):
         
         # 工具栏
         self.setup_toolbar()
+
+    # ... (rest of init/toolbar code is fine) ...
+
+    def clear_all(self):
+        """清除所有批注"""
+        self.lines = []
+        self._dirty = True
+        self.update()
         
+    def mousePressEvent(self, event):
+        from PyQt6.QtCore import Qt
+        if event.button() == Qt.MouseButton.RightButton:
+            self.close()
+        elif event.button() == Qt.MouseButton.LeftButton:
+            if self.drawing:
+                # 开始绘制新线条
+                self.current_line = {
+                    'points': [event.pos()],
+                    'color': self.pen_color,
+                    'width': self.pen_width
+                }
+            elif self.erasing:
+                # 开始橡皮擦操作
+                self.erase_at_point(event.pos())
+                
+    def mouseMoveEvent(self, event):
+        if self.drawing and self.current_line:
+            # 添加点到当前线条
+            self.current_line['points'].append(event.pos())
+            self.update()
+        elif self.erasing:
+            # 橡皮擦操作
+            self.erase_at_point(event.pos())
+            
+    def mouseReleaseEvent(self, event):
+        from PyQt6.QtCore import Qt, QPoint
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.drawing and self.current_line:
+                # 完成当前线条
+                if len(self.current_line['points']) > 1:
+                    self.lines.append(self.current_line)
+                    self._dirty = True # 需要重绘缓存
+                self.current_line = None
+                self.update()
+                
+    def erase_at_point(self, point):
+        """在指定点进行擦除操作"""
+        # 简单实现：移除靠近点击点的线条
+        lines_to_remove = []
+        for line in self.lines:
+            for p in line['points']:
+                # 计算点之间的距离
+                distance = ((p.x() - point.x()) ** 2 + (p.y() - point.y()) ** 2) ** 0.5
+                if distance < self.eraser_size:
+                    lines_to_remove.append(line)
+                    break
+                    
+        # 移除需要擦除的线条
+        if lines_to_remove:
+            for line in lines_to_remove:
+                if line in self.lines:
+                    self.lines.remove(line)
+            self._dirty = True
+            self.update()
+
+    def resizeEvent(self, event):
+        self._buffer_pixmap = None
+        self._dirty = True
+        super().resizeEvent(event)
+
+    def paintEvent(self, event):
+        from PyQt6.QtGui import QPainter, QPen
+        from PyQt6.QtCore import Qt
+        
+        # 1. 初始化或重建缓存
+        if self._buffer_pixmap is None or self._buffer_pixmap.size() != self.size():
+            self._buffer_pixmap = QPixmap(self.size())
+            self._buffer_pixmap.fill(Qt.GlobalColor.transparent)
+            self._dirty = True
+            
+        # 2. 如果标记为 dirty，重绘所有静态线条到缓存
+        if self._dirty:
+            self._buffer_pixmap.fill(Qt.GlobalColor.transparent)
+            p = QPainter(self._buffer_pixmap)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            for line in self.lines:
+                if len(line['points']) > 1:
+                    pen = QPen(line['color'], line['width'], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+                    p.setPen(pen)
+                    for i in range(len(line['points']) - 1):
+                        p.drawLine(line['points'][i], line['points'][i + 1])
+            p.end()
+            self._dirty = False
+            
+        # 3. 绘制缓存和当前正在画的线
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        painter.drawPixmap(0, 0, self._buffer_pixmap)
+        
+        # 绘制当前正在绘制的线条 (动态)
+        if self.current_line and len(self.current_line['points']) > 1:
+            pen = QPen(self.current_line['color'], self.current_line['width'], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+            painter.setPen(pen)
+            for i in range(len(self.current_line['points']) - 1):
+                painter.drawLine(self.current_line['points'][i], self.current_line['points'][i + 1])
+
     def setup_toolbar(self):
         """设置工具栏"""
         toolbar_width = 40
@@ -517,102 +688,7 @@ class CompatibilityAnnotationWidget(QWidget):
             }}
         """)
         
-    def set_pen_mode(self):
-        """设置笔模式"""
-        self.btn_pen.setChecked(True)
-        self.btn_eraser.setChecked(False)
-        self.drawing = True
-        self.erasing = False
-        
-    def set_eraser_mode(self):
-        """设置橡皮擦模式"""
-        self.btn_eraser.setChecked(True)
-        self.btn_pen.setChecked(False)
-        self.drawing = False
-        self.erasing = True
-        
-    def set_pen_color(self, color):
-        """设置笔颜色"""
-        self.pen_color = color
-        
-    def clear_all(self):
-        """清除所有批注"""
-        self.lines = []
-        self.update()
-        
-    def mousePressEvent(self, event):
-        from PyQt6.QtCore import Qt
-        if event.button() == Qt.MouseButton.RightButton:
-            self.close()
-        elif event.button() == Qt.MouseButton.LeftButton:
-            if self.drawing:
-                # 开始绘制新线条
-                self.current_line = {
-                    'points': [event.pos()],
-                    'color': self.pen_color,
-                    'width': self.pen_width
-                }
-            elif self.erasing:
-                # 开始橡皮擦操作
-                self.erase_at_point(event.pos())
-                
-    def mouseMoveEvent(self, event):
-        if self.drawing and self.current_line:
-            # 添加点到当前线条
-            self.current_line['points'].append(event.pos())
-            self.update()
-        elif self.erasing:
-            # 橡皮擦操作
-            self.erase_at_point(event.pos())
-            
-    def mouseReleaseEvent(self, event):
-        from PyQt6.QtCore import Qt, QPoint
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.drawing and self.current_line:
-                # 完成当前线条
-                if len(self.current_line['points']) > 1:
-                    self.lines.append(self.current_line)
-                self.current_line = None
-                
-    def erase_at_point(self, point):
-        """在指定点进行擦除操作"""
-        # 简单实现：移除靠近点击点的线条
-        lines_to_remove = []
-        for line in self.lines:
-            for p in line['points']:
-                # 计算点之间的距离
-                distance = ((p.x() - point.x()) ** 2 + (p.y() - point.y()) ** 2) ** 0.5
-                if distance < self.eraser_size:
-                    lines_to_remove.append(line)
-                    break
-                    
-        # 移除需要擦除的线条
-        for line in lines_to_remove:
-            if line in self.lines:
-                self.lines.remove(line)
-                
-        self.update()
-        
-    def paintEvent(self, event):
-        from PyQt6.QtGui import QPainter, QPen
-        from PyQt6.QtCore import Qt
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        # 绘制已保存的线条
-        for line in self.lines:
-            if len(line['points']) > 1:
-                pen = QPen(line['color'], line['width'], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-                painter.setPen(pen)
-                for i in range(len(line['points']) - 1):
-                    painter.drawLine(line['points'][i], line['points'][i + 1])
-                    
-        # 绘制当前正在绘制的线条
-        if self.current_line and len(self.current_line['points']) > 1:
-            pen = QPen(self.current_line['color'], self.current_line['width'], Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-            painter.setPen(pen)
-            for i in range(len(self.current_line['points']) - 1):
-                painter.drawLine(self.current_line['points'][i], self.current_line['points'][i + 1])
+
 
 
 class AnnotationWidget(QWidget):
@@ -844,15 +920,11 @@ class PageNavWidget(QWidget):
         self.btn_prev = TransparentToolButton(parent=self)
         self.btn_prev.setFixedSize(36, 36) 
         self.btn_prev.setIconSize(QSize(18, 18))
-        self.btn_prev.setToolTip("上一页")
-        self.btn_prev.installEventFilter(ToolTipFilter(self.btn_prev, 1000, ToolTipPosition.TOP))
         self.btn_prev.clicked.connect(self.prev_clicked.emit)
         
         self.btn_next = TransparentToolButton(parent=self)
         self.btn_next.setFixedSize(36, 36) 
         self.btn_next.setIconSize(QSize(18, 18))
-        self.btn_next.setToolTip("下一页")
-        self.btn_next.installEventFilter(ToolTipFilter(self.btn_next, 1000, ToolTipPosition.TOP))
         self.btn_next.clicked.connect(self.next_clicked.emit)
 
         self.page_info_widget = QWidget()
@@ -1077,8 +1149,6 @@ class PageNavWidget(QWidget):
         self.page_anim.start()
     
     def apply_settings(self):
-        self.btn_prev.setToolTip("上一页")
-        self.btn_next.setToolTip("下一页")
         self.lbl_page_text.setText("页码")
         self.style_nav_btn(self.btn_prev, self.current_theme)
         self.style_nav_btn(self.btn_next, self.current_theme)
@@ -1091,7 +1161,6 @@ class ToolBarWidget(QWidget):
     request_clear_ink = pyqtSignal()
     request_exit = pyqtSignal()
     request_timer = pyqtSignal()
-    labels_toggled = pyqtSignal(bool)
     
     def __init__(self):
         super().__init__()
@@ -1122,49 +1191,47 @@ class ToolBarWidget(QWidget):
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
         
-        self.btn_arrow = self.create_tool_btn("选择", "Mouse.svg")
+        self.btn_arrow = self.create_tool_btn("Mouse.svg")
         self.btn_arrow.clicked.connect(lambda: self.request_pointer_mode.emit(1))
         
-        self.btn_pen = self.create_tool_btn("笔", "Pen.svg")
+        self.btn_pen = self.create_tool_btn("Pen.svg")
         self.btn_pen.clicked.connect(lambda: self.request_pointer_mode.emit(2))
         
-        self.btn_eraser = self.create_tool_btn("橡皮", "Eraser.svg")
+        self.btn_eraser = self.create_tool_btn("Eraser.svg")
         self.btn_eraser.clicked.connect(lambda: self.request_pointer_mode.emit(5))
         
-        self.btn_clear = self.create_action_btn("一键清除", "Clear.svg")
+        self.btn_clear = self.create_action_btn("Clear.svg")
         self.btn_clear.clicked.connect(self.request_clear_ink.emit)
         
         self.group.addButton(self.btn_arrow)
         self.group.addButton(self.btn_pen)
         self.group.addButton(self.btn_eraser)
         
-        self.btn_spotlight = self.create_action_btn("聚焦", "Select.svg")
+        self.btn_spotlight = self.create_action_btn("Select.svg")
         self.btn_spotlight.clicked.connect(self.request_spotlight.emit)
-        self.btn_timer = self.create_action_btn("计时器", "timer.svg")
+        self.btn_timer = self.create_action_btn("timer.svg")
         self.btn_timer.clicked.connect(self.request_timer.emit)
 
-        self.btn_exit = self.create_action_btn("结束放映", "Minimaze.svg")
+        self.btn_exit = self.create_action_btn("Minimaze.svg")
         self.btn_exit.clicked.connect(self.request_exit.emit)
         
-        self.btn_wrappers = {}
-
-        self.add_btn_with_label(container_layout, self.btn_arrow, "选择")
-        self.add_btn_with_label(container_layout, self.btn_pen, "笔")
-        self.add_btn_with_label(container_layout, self.btn_eraser, "橡皮")
-        self.add_btn_with_label(container_layout, self.btn_clear, "清屏")
+        container_layout.addWidget(self.btn_arrow)
+        container_layout.addWidget(self.btn_pen)
+        container_layout.addWidget(self.btn_eraser)
+        container_layout.addWidget(self.btn_clear)
         
         self.line1 = QFrame()
         self.line1.setFrameShape(QFrame.Shape.VLine)
         container_layout.addWidget(self.line1)
         
-        self.add_btn_with_label(container_layout, self.btn_spotlight, "聚焦")
-        self.add_btn_with_label(container_layout, self.btn_timer, "计时")
+        container_layout.addWidget(self.btn_spotlight)
+        container_layout.addWidget(self.btn_timer)
 
         self.line2 = QFrame()
         self.line2.setFrameShape(QFrame.Shape.VLine)
         container_layout.addWidget(self.line2)
 
-        self.add_btn_with_label(container_layout, self.btn_exit, "结束")
+        container_layout.addWidget(self.btn_exit)
         
         layout.addWidget(self.container)
         self.setLayout(layout)
@@ -1321,24 +1388,20 @@ class ToolBarWidget(QWidget):
             self.update_indicator_for_current()
         self.update_pen_icon_state()
 
-    def create_tool_btn(self, text, icon_name):
+    def create_tool_btn(self, icon_name):
         btn = TransparentToolButton(parent=self)
         btn.setIcon(get_icon(icon_name, self.current_theme))
         btn.setFixedSize(36, 36)
         btn.setIconSize(QSize(20, 20))
         btn.setCheckable(True)
-        btn.setToolTip(text)
-        btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
         btn.toggled.connect(self.on_tool_btn_toggled)
         return btn
         
-    def create_action_btn(self, text, icon_name):
+    def create_action_btn(self, icon_name):
         btn = TransparentToolButton(parent=self)
         btn.setIcon(get_icon(icon_name, self.current_theme))
         btn.setFixedSize(36, 36)
         btn.setIconSize(QSize(20, 20))
-        btn.setToolTip(text)
-        btn.installEventFilter(ToolTipFilter(btn, 1000, ToolTipPosition.TOP))
         # Style will be set in set_theme
         return btn
     
@@ -1512,63 +1575,6 @@ class ToolBarWidget(QWidget):
 
         btn.pressed.connect(on_pressed)
 
-    def add_btn_with_label(self, layout, btn, text):
-        wrapper = QWidget()
-        wrapper_layout = QHBoxLayout(wrapper)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
-        wrapper_layout.setSpacing(6)
-        wrapper_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        wrapper_layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        label = QLabel(text)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = label.font()
-        font.setPixelSize(12)
-        font.setBold(False)
-        label.setFont(font)
-        
-        wrapper_layout.addWidget(label, 0, Qt.AlignmentFlag.AlignCenter)
-        label.setVisible(False)
-        
-        layout.addWidget(wrapper)
-        self.btn_wrappers[btn] = (wrapper, label)
-        
-    def set_labels_visible(self, visible):
-        old_center = self.geometry().center()
-        
-        for btn, (wrapper, label) in self.btn_wrappers.items():
-            label.setVisible(visible)
-            
-        self.adjustSize()
-        self.resize(self.sizeHint())
-        
-        # Only preserve center if widget is actually visible on screen
-        if self.isVisible():
-            new_geometry = self.frameGeometry()
-            new_geometry.moveCenter(old_center)
-            self.move(new_geometry.topLeft())
-            
-        self.set_theme(self.current_theme)
-        self.update_indicator_for_current()
-        
-    def contextMenuEvent(self, event):
-        menu = QMenu(self)
-        menu.setStyleSheet("QMenu { background-color: white; border: 1px solid #ccc; }")
-        if self.current_theme == Theme.DARK:
-             menu.setStyleSheet("QMenu { background-color: #2d2d2d; color: white; border: 1px solid #444; }")
-             
-        is_visible = False
-        if self.btn_wrappers:
-            first_label = list(self.btn_wrappers.values())[0][1]
-            is_visible = first_label.isVisible()
-            
-        action_text = "隐藏按钮提示" if is_visible else "显示按钮提示"
-        toggle_action = QAction(action_text, self)
-        toggle_action.triggered.connect(lambda: self.labels_toggled.emit(not is_visible))
-        
-        menu.addAction(toggle_action)
-        menu.exec(event.globalPos())
 
 
 class ClockWidget(QWidget):

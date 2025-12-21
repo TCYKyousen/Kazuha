@@ -5,6 +5,10 @@ import psutil
 import subprocess
 import ctypes
 from pathlib import Path
+from datetime import datetime
+import win32api
+import win32con
+import win32gui
 
 from PyQt6.QtWidgets import QApplication, QWidget, QSystemTrayIcon
 from PyQt6.QtCore import QTimer, Qt, QThread, pyqtSignal, QUrl, QObject, QPoint
@@ -32,6 +36,16 @@ from .sound_manager import SoundManager
 import pythoncom
 import os
 from typing import Optional
+from datetime import datetime
+
+def log(msg):
+    try:
+        log_dir = os.path.join(os.getenv("APPDATA"), "SeiraiPPTAssistant")
+        log_path = os.path.join(log_dir, "debug.log")
+        with open(log_path, "a") as f:
+            f.write(f"{datetime.now()}: [BusinessLogic] {msg}\n")
+    except:
+        pass
 
 # fallback 到 Temp
 CONFIG_DIR = Path(os.getenv("APPDATA", os.getenv("TEMP", "C:\\"))) / "SeiraiPPTAssistant"
@@ -73,7 +87,6 @@ class Config(QConfig):
         OptionsValidator(["Simplified Chinese", "English"]),
         None,
     )
-    showButtonLabels = ConfigItem("General", "ShowButtonLabels", False)
 
 
 cfg = Config()
@@ -114,6 +127,13 @@ class SlideExportThread(QThread):
 class BusinessLogicController(QWidget):
     def __init__(self):
         super().__init__()
+        self._com_initialized = False
+        try:
+            pythoncom.CoInitialize()
+            self._com_initialized = True
+        except Exception:
+            self._com_initialized = False
+
         self.theme_mode = self.load_theme_setting()
         setTheme(self.theme_mode)
         
@@ -123,10 +143,13 @@ class BusinessLogicController(QWidget):
         self.move(-100, -100) 
         
         self.ppt_client = PPTClient()
-        self.version_manager = VersionManager()
+        
+        # Initialize VersionManager with correct path
+        base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        version_config_path = os.path.join(base_dir, "config", "version.json")
+        self.version_manager = VersionManager(config_path=version_config_path)
         
         # Initialize SoundManager
-        base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         sound_dir = os.path.join(base_dir, "SoundEffectResources")
         self.sound_manager = SoundManager(sound_dir)
         
@@ -200,15 +223,6 @@ class BusinessLogicController(QWidget):
         # but we can try to set it on specific widgets if needed.
         # For now, this is a placeholder or we can implement specific animation toggles.
         pass
-
-    def on_labels_toggled(self, visible):
-        if cfg.showButtonLabels.value != visible:
-            cfg.set(cfg.showButtonLabels, visible)
-            qconfig.save()
-        if self.toolbar:
-            self.toolbar.set_labels_visible(visible)
-        if hasattr(self, "show_labels_action"):
-            self.show_labels_action.setChecked(visible)
 
     def set_window_effect(self, effect_name):
         # Update config if needed
@@ -370,8 +384,6 @@ class BusinessLogicController(QWidget):
             self.toolbar.request_clear_ink.connect(self.clear_ink)
             self.toolbar.request_exit.connect(self.exit_slideshow)
             self.toolbar.request_timer.connect(self.toggle_timer_window)
-            self.toolbar.labels_toggled.connect(self.on_labels_toggled)
-            self.toolbar.set_labels_visible(cfg.showButtonLabels.value)
             
         if self.nav_left:
             self.nav_left.prev_clicked.connect(self.prev_page)
@@ -400,7 +412,6 @@ class BusinessLogicController(QWidget):
 
         annotation_action = Action(self, text="独立批注", triggered=self.toggle_annotation_mode)
         timer_action = Action(self, text="计时器", triggered=self.toggle_timer_window)
-        self.show_labels_action = Action(self, text="显示按钮提示", checkable=True, triggered=self.on_labels_toggled)
 
         self.theme_auto_action = Action(self, text="跟随系统", checkable=True, triggered=self.set_theme_auto)
         self.theme_light_action = Action(self, text="浅色模式", checkable=True, triggered=self.set_theme_light)
@@ -441,7 +452,6 @@ class BusinessLogicController(QWidget):
 
         tray_menu.addAction(annotation_action)
         tray_menu.addAction(timer_action)
-        tray_menu.addAction(self.show_labels_action)
         tray_menu.addSeparator()
         tray_menu.addAction(self.theme_auto_action)
         tray_menu.addAction(self.theme_light_action)
@@ -474,8 +484,6 @@ class BusinessLogicController(QWidget):
 
         if cfg.enableStartUp.value:
             self.autorun_action.setChecked(True)
-
-        self.show_labels_action.setChecked(cfg.showButtonLabels.value)
 
         timer_pos = cfg.timerPosition.value
         self.timer_pos_center_action.setChecked(timer_pos == "Center")
@@ -545,6 +553,11 @@ class BusinessLogicController(QWidget):
                 # self.ppt_client.app.Quit() # Should not quit PPT app on helper exit?
                 pass
             except:
+                pass
+        if getattr(self, "_com_initialized", False):
+            try:
+                pythoncom.CoUninitialize()
+            except Exception:
                 pass
         # 清理批注功能
         if self.annotation_widget:
@@ -806,17 +819,37 @@ class BusinessLogicController(QWidget):
         except Exception as e:
             print(f"Error setting autorun: {e}")
 
-    def check_state(self):
-        # 仅在有活动放映视图时显示控件
-        view = None
-        has_process = self.check_presentation_processes()
-        
-        if has_process:
-            view = self.ppt_client.get_active_view()
+    def ensure_topmost(self):
+        """Ensure all widgets are topmost"""
+        try:
+            flags = win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE
+            widgets = [
+                self.toolbar, 
+                self.nav_left, 
+                self.nav_right, 
+                self.clock_widget,
+                self.timer_window,
+                self.spotlight,
+                self.annotation_widget
+            ]
             
-        if view:
+            for widget in widgets:
+                if widget and widget.isVisible():
+                    hwnd = widget.winId()
+                    # HWND_TOPMOST = -1
+                    win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, flags)
+                    widget.raise_()
+        except Exception:
+            pass
+
+    def check_state(self):
+        view = self.ppt_client.get_office_fullscreen_view()
+
+        if view is not None:
             if not self.widgets_visible:
                 self.show_widgets()
+            else:
+                self.ensure_topmost()
             
             if self.ppt_client.app:
                 assert self.nav_left is not None
@@ -839,6 +872,7 @@ class BusinessLogicController(QWidget):
         if self.clock_widget and not self.conflicting_process_running:
             self.clock_widget.show()
         self.adjust_positions()
+        self.ensure_topmost()
         self.widgets_visible = True
         
         if not self.slides_loaded:
@@ -895,15 +929,30 @@ class BusinessLogicController(QWidget):
         assert self.toolbar is not None
         assert self.nav_left is not None
         assert self.nav_right is not None
-        if self.toolbar and self.toolbar.screen():
-            screen = self.toolbar.screen().geometry() # type: ignore
-        else:
-            screen = QApplication.primaryScreen().geometry() # type: ignore
+
+        screen = None
+        try:
+            hwnd = self.ppt_client.get_slideshow_window_hwnd()
+            if hwnd:
+                monitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+                info = win32api.GetMonitorInfo(monitor)
+                work = info.get("Work") or info.get("Monitor")
+                if work:
+                    left, top, right, bottom = work
+                    screen = (left, top, right - left, bottom - top)
+        except Exception:
+            screen = None
+
+        if screen is None:
+            if self.toolbar and self.toolbar.screen():
+                g = self.toolbar.screen().geometry()  # type: ignore
+                screen = (g.left(), g.top(), g.width(), g.height())
+            else:
+                g = QApplication.primaryScreen().geometry()  # type: ignore
+                screen = (g.left(), g.top(), g.width(), g.height())
+
         MARGIN = 20
-        left = screen.left()
-        top = screen.top()
-        width = screen.width()
-        height = screen.height()
+        left, top, width, height = screen
         right = left + width
         bottom = top + height
         
@@ -919,6 +968,15 @@ class BusinessLogicController(QWidget):
         nav_y = top + height - nav_h - MARGIN
         self.nav_left.setGeometry(left + MARGIN, nav_y, nav_w, nav_h)
         self.nav_right.setGeometry(right - nav_w - MARGIN, nav_y, nav_w, nav_h)
+
+        try:
+            flags = win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE
+            for w in (self.toolbar, self.nav_left, self.nav_right, self.clock_widget):
+                if not w:
+                    continue
+                win32gui.SetWindowPos(int(w.winId()), win32con.HWND_TOPMOST, 0, 0, 0, 0, flags)
+        except Exception:
+            pass
         
         if self.clock_widget:
             self.clock_widget.adjustSize()

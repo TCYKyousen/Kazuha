@@ -2,11 +2,11 @@ import sys
 import os
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QButtonGroup, 
                              QLabel, QFrame, QPushButton, QGridLayout, QStackedWidget,
-                             QScrollArea)
+                             QScrollArea, QSizePolicy)
 from PyQt6.QtCore import (Qt, QSize, pyqtSignal, QEvent, QRect, QPropertyAnimation, 
                           QEasingCurve, QAbstractAnimation, QTimer, QSequentialAnimationGroup, QDateTime, 
                           QPoint, QThread, pyqtProperty, QPointF)
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QRadialGradient
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen, QRadialGradient, QFont
 from qfluentwidgets import (TransparentToolButton, ToolButton, SpinBox,
                             PrimaryPushButton, PushButton, TabWidget,
                             Flyout, FlyoutAnimationType,
@@ -31,18 +31,30 @@ def icon_path(name):
     # Return path to icons folder in parent directory
     return os.path.join(os.path.dirname(base_dir), "icons", name)
 
-def get_icon(name, theme=Theme.DARK):
+_ICON_CACHE: dict[tuple[str, Theme, int], QIcon] = {}
+
+def get_icon(name, theme=Theme.DARK, rotation=0):
+    from PyQt6.QtGui import QIcon, QPixmap, QTransform
+    key = (name, theme, int(rotation))
+    cached = _ICON_CACHE.get(key)
+    if cached is not None:
+        return cached
+
     path = icon_path(name)
     if not os.path.exists(path):
         return QIcon()
         
-    if theme == Theme.LIGHT:
-        # Read SVG and replace white with black
+    pixmap = None
+    is_light = False
+    if hasattr(Theme, 'LIGHT') and theme == Theme.LIGHT:
+        is_light = True
+    elif str(theme).lower() == 'light':
+        is_light = True
+        
+    if is_light:
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            # Simple replacement of fill="white" or fill="#ffffff" or stroke="white"
-            # This is a heuristic, might need adjustment
             content = content.replace('fill="white"', 'fill="#333333"')
             content = content.replace('fill="#ffffff"', 'fill="#333333"')
             content = content.replace('stroke="white"', 'stroke="#333333"')
@@ -50,11 +62,22 @@ def get_icon(name, theme=Theme.DARK):
             
             pixmap = QPixmap()
             pixmap.loadFromData(content.encode('utf-8'))
-            return QIcon(pixmap)
         except:
-            return QIcon(path)
+            pixmap = QPixmap(path)
     else:
-        return QIcon(path)
+        pixmap = QPixmap(path)
+        
+    if pixmap and not pixmap.isNull():
+        if rotation != 0:
+            transform = QTransform().rotate(rotation)
+            pixmap = pixmap.transformed(transform, Qt.TransformationMode.SmoothTransformation)
+        icon = QIcon(pixmap)
+        _ICON_CACHE[key] = icon
+        return icon
+        
+    icon = QIcon(path)
+    _ICON_CACHE[key] = icon
+    return icon
 
 
 class IconFactory:
@@ -584,6 +607,10 @@ class AnnotationWidget(QWidget):
         self.set_theme(Theme.DARK)
 
     def set_theme(self, theme):
+        if theme == Theme.AUTO:
+            import qfluentwidgets
+            theme = qfluentwidgets.theme()
+            
         self.current_theme = theme
         
         if theme == Theme.LIGHT:
@@ -627,6 +654,8 @@ class AnnotationWidget(QWidget):
         
         self.btn_pen.setStyleSheet(btn_style)
         self.btn_eraser.setStyleSheet(btn_style)
+
+
         
         # Update icons
         self.btn_pen.setIcon(get_icon("Pen.svg", theme))
@@ -807,29 +836,43 @@ class PageNavWidget(QWidget):
     prev_clicked = pyqtSignal()
     next_clicked = pyqtSignal()
     
-    def __init__(self, parent=None, is_right=False):
+    def __init__(self, parent=None, is_right=False, orientation=Qt.Orientation.Horizontal):
         super().__init__(parent)
         self.ppt_app = None 
         self.is_right = is_right
+        self.orientation = orientation
         self.current_theme = Theme.DARK
         self.slide_selector_window = None
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        layout = QHBoxLayout()
-        # [修改] 统一边距：左右10，上下5。配合总高度60，内部高度为50
-        layout.setContentsMargins(10, 5, 10, 5)
+        if self.orientation == Qt.Orientation.Vertical:
+            from PyQt6.QtWidgets import QVBoxLayout
+            layout = QVBoxLayout()
+            # Reduce margins to 0 to allow full centering control
+            layout.setContentsMargins(0, 10, 0, 10)
+            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            layout = QHBoxLayout()
+            layout.setContentsMargins(10, 5, 10, 5)
+            
         layout.setSpacing(0)
         
         self.container = QWidget()
         self.container.setObjectName("Container")
         
-        inner_layout = QHBoxLayout(self.container)
-        inner_layout.setContentsMargins(8, 0, 8, 0)
-        inner_layout.setSpacing(15)
-        
-        # [修改] 强制锁死内部容器高度为 50
-        self.container.setFixedHeight(50)
+        if self.orientation == Qt.Orientation.Vertical:
+            from PyQt6.QtWidgets import QVBoxLayout
+            inner_layout = QVBoxLayout(self.container)
+            inner_layout.setContentsMargins(0, 8, 0, 8)
+            inner_layout.setSpacing(10)
+            inner_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.container.setFixedWidth(50)
+        else:
+            inner_layout = QHBoxLayout(self.container)
+            inner_layout.setContentsMargins(8, 0, 8, 0)
+            inner_layout.setSpacing(15)
+            self.container.setFixedHeight(50)
         
         self.btn_prev = TransparentToolButton(parent=self)
         self.btn_prev.setFixedSize(36, 36) 
@@ -840,6 +883,15 @@ class PageNavWidget(QWidget):
         self.btn_next.setFixedSize(36, 36) 
         self.btn_next.setIconSize(QSize(18, 18))
         self.btn_next.clicked.connect(self.next_clicked.emit)
+        
+        # Optimize click response by allowing rapid clicks
+        self.btn_prev.setAutoRepeat(True)
+        self.btn_prev.setAutoRepeatDelay(400)
+        self.btn_prev.setAutoRepeatInterval(150)
+        
+        self.btn_next.setAutoRepeat(True)
+        self.btn_next.setAutoRepeatDelay(400)
+        self.btn_next.setAutoRepeatInterval(150)
 
         self.page_info_widget = QWidget()
         self.page_info_widget.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -850,36 +902,69 @@ class PageNavWidget(QWidget):
         from PyQt6.QtWidgets import QVBoxLayout
         info_layout = QVBoxLayout(self.page_info_widget)
         info_layout.setContentsMargins(6, 0, 6, 0)
-        info_layout.setSpacing(0) # [修改] 减小垂直间距
+        info_layout.setSpacing(0)
         info_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.lbl_page_num = QLabel("1/--")
         self.lbl_page_num.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_page_num.setFixedWidth(80)
+        if self.orientation == Qt.Orientation.Vertical:
+             # Remove fixed width to allow layout to center it naturally
+             self.lbl_page_num.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+             self.lbl_page_num.setFixedWidth(50) # Force a width that matches container to ensure text centering works
+        else:
+             self.lbl_page_num.setFixedWidth(80)
+             
         self.lbl_page_text = QLabel("页码")
         self.lbl_page_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         info_layout.addWidget(self.lbl_page_num, 0, Qt.AlignmentFlag.AlignCenter)
-        info_layout.addWidget(self.lbl_page_text, 0, Qt.AlignmentFlag.AlignCenter)
+        if self.orientation != Qt.Orientation.Vertical:
+            info_layout.addWidget(self.lbl_page_text, 0, Qt.AlignmentFlag.AlignCenter)
+        else:
+            self.lbl_page_text.hide() # Hide text in vertical mode to save space
         
-        inner_layout.addWidget(self.btn_prev)
+        # In vertical mode, ensure page info widget is centered in parent layout
+        if self.orientation == Qt.Orientation.Vertical:
+            self.page_info_widget.setFixedWidth(50)
+            # Remove any margins from info layout to be safe
+            info_layout.setContentsMargins(0, 0, 0, 0)
+        
+        inner_layout.addWidget(self.btn_prev, 0, Qt.AlignmentFlag.AlignCenter)
         
         self.line1 = QFrame()
-        self.line1.setFrameShape(QFrame.Shape.VLine)
-        self.line1.setFixedHeight(24)
-        inner_layout.addWidget(self.line1)
+        if self.orientation == Qt.Orientation.Vertical:
+            self.line1.setFrameShape(QFrame.Shape.HLine)
+            self.line1.setFixedWidth(24)
+            self.line1.setFixedHeight(1)
+            self.line1.setStyleSheet("background-color: transparent;")
+        else:
+            self.line1.setFrameShape(QFrame.Shape.VLine)
+            self.line1.setFixedHeight(24)
+            self.line1.setFixedWidth(1)
+        inner_layout.addWidget(self.line1, 0, Qt.AlignmentFlag.AlignCenter)
         
         inner_layout.addWidget(self.page_info_widget)
         
         self.line2 = QFrame()
-        self.line2.setFrameShape(QFrame.Shape.VLine)
-        self.line2.setFixedHeight(24)
-        inner_layout.addWidget(self.line2)
+        if self.orientation == Qt.Orientation.Vertical:
+            self.line2.setFrameShape(QFrame.Shape.HLine)
+            self.line2.setFixedWidth(24)
+            self.line2.setFixedHeight(1)
+        else:
+            self.line2.setFrameShape(QFrame.Shape.VLine)
+            self.line2.setFixedHeight(24)
+            self.line2.setFixedWidth(1)
+        inner_layout.addWidget(self.line2, 0, Qt.AlignmentFlag.AlignCenter)
         
-        inner_layout.addWidget(self.btn_next)
+        inner_layout.addWidget(self.btn_next, 0, Qt.AlignmentFlag.AlignCenter)
         
         layout.addWidget(self.container)
-        self.setFixedHeight(HEIGHT_BAR)
+        
+        if self.orientation == Qt.Orientation.Vertical:
+            self.setFixedWidth(60)
+        else:
+            self.setFixedHeight(HEIGHT_BAR)
+            
         self.setLayout(layout)
 
         self.setup_click_feedback(self.btn_prev, QSize(18, 18))
@@ -911,7 +996,6 @@ class PageNavWidget(QWidget):
             indicator_color = "#B38F8F"
             indicator_hover = "rgba(179, 143, 143, 0.3)"
             
-        # [修改] 统一圆角为 25px (对应 50px 高度)
         self.container.setStyleSheet(f"""
             QWidget#Container {{
                 background-color: {bg_color};
@@ -932,9 +1016,6 @@ class PageNavWidget(QWidget):
             }}
         """)
         
-        # [修改] 修复字体基线问题：
-        # 1. 使用 Segoe UI 字体
-        # 2. 增加 padding-top 强制下压
         self.lbl_page_num.setStyleSheet(f"""
             font-family: 'Bahnschrift', sans-serif;
             font-size: 16px; 
@@ -944,14 +1025,20 @@ class PageNavWidget(QWidget):
             background-color: transparent;
         """)
         
-        # [修改] 微调下方小字位置
         self.lbl_page_text.setStyleSheet(f"font-size: 10px; color: {subtext_color}; padding-bottom: 2px;")
         
-        self.line1.setStyleSheet(f"color: {line_color};")
-        self.line2.setStyleSheet(f"color: {line_color};")
+        self.line1.setStyleSheet(f"background-color: {line_color};")
+        self.line2.setStyleSheet(f"background-color: {line_color};")
         
-        self.btn_prev.setIcon(get_icon("Previous.svg", theme))
-        self.btn_next.setIcon(get_icon("Next.svg", theme))
+        if self.orientation == Qt.Orientation.Vertical:
+            self.btn_prev.setIcon(get_icon("Previous.svg", theme, rotation=90))
+            self.btn_next.setIcon(get_icon("Next.svg", theme, rotation=90))
+        else:
+            self.btn_prev.setIcon(get_icon("Previous.svg", theme))
+            self.btn_next.setIcon(get_icon("Next.svg", theme))
+
+        if hasattr(self, 'is_last_page') and self.is_last_page:
+             self.btn_next.setIcon(get_icon("Minimaze.svg", theme))
         
         self.style_nav_btn(self.btn_prev, theme)
         self.style_nav_btn(self.btn_next, theme)
@@ -1033,33 +1120,66 @@ class PageNavWidget(QWidget):
         self.slide_selector_window = None
 
     def update_page(self, current, total):
-        from PyQt6.QtCore import QPoint
-        # 保持 HTML 结构以支持大小字体，但由于 stylesheet 设置了 font-family 和 padding，这里主要控制相对大小
-        html = f"<html><head/><body><p><span style='font-size:16pt;'>{current}</span><span style='font-size:10pt;'>/{total}</span></p></body></html>"
-        if not hasattr(self, "page_base_pos") or self.page_base_pos is None:
-            self.lbl_page_num.setText(html)
-            self.page_base_pos = self.lbl_page_num.pos()
+        try:
+            prev_current = getattr(self, "last_page_value", None)
+            prev_total = getattr(self, "last_total_value", None)
+
+            if prev_current == current and prev_total == total:
+                return
+
+            if self.orientation == Qt.Orientation.Vertical:
+                self.lbl_page_num.blockSignals(True)
+                # Force alignment with a div wrapper
+                html = (
+                    "<html><head/><body>"
+                    "<div align='center' style='margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px;'>"
+                    f"<span style='font-size:12pt; font-weight:600;'>{current}</span>"
+                    f"<span style='font-size:10pt; color:#aaaaaa;'>/{total}</span>"
+                    "</div></body></html>"
+                )
+                self.lbl_page_num.setText(html)
+                self.lbl_page_num.blockSignals(False)
+            else:
+                from PyQt6.QtCore import QPoint
+
+                html = f"<html><head/><body><p><span style='font-size:16pt;'>{current}</span><span style='font-size:10pt;'>/{total}</span></p></body></html>"
+                self.lbl_page_num.setText(html)
+
+                if prev_current is not None and prev_current != current:
+                    direction = -1 if current < prev_current else 1
+                    base_pos = self.lbl_page_num.pos()
+                    if not hasattr(self, "page_anim") or self.page_anim is None:
+                        self.page_anim = QPropertyAnimation(self.lbl_page_num, b"pos", self)
+                        self.page_anim.setDuration(150)
+                        self.page_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+                    self.page_anim.stop()
+                    offset = 6
+                    start_pos = base_pos + QPoint(0, offset * direction)
+                    self.lbl_page_num.move(start_pos)
+                    self.page_anim.setStartValue(start_pos)
+                    self.page_anim.setEndValue(base_pos)
+                    self.page_anim.start()
+
             self.last_page_value = current
-            return
-        if hasattr(self, "last_page_value") and self.last_page_value == current:
-            self.lbl_page_num.setText(html)
-            return
-        direction = 1
-        if hasattr(self, "last_page_value") and self.last_page_value is not None and current < self.last_page_value:
-            direction = -1
-        self.last_page_value = current
-        self.lbl_page_num.setText(html)
-        if not hasattr(self, "page_anim") or self.page_anim is None:
-            self.page_anim = QPropertyAnimation(self.lbl_page_num, b"pos", self)
-            self.page_anim.setDuration(150)
-            self.page_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
-        self.page_anim.stop()
-        offset = 6
-        start_pos = self.page_base_pos + QPoint(0, offset * direction)
-        self.lbl_page_num.move(start_pos)
-        self.page_anim.setStartValue(start_pos)
-        self.page_anim.setEndValue(self.page_base_pos)
-        self.page_anim.start()
+            self.last_total_value = total
+
+            was_last_page = getattr(self, "is_last_page", None)
+            is_last_page = (current >= total and total > 0)
+            self.is_last_page = is_last_page
+
+            if was_last_page != is_last_page:
+                if is_last_page:
+                    self.btn_next.setIcon(get_icon("Minimaze.svg", self.current_theme))
+                else:
+                    if self.orientation == Qt.Orientation.Vertical:
+                        self.btn_next.setIcon(get_icon("Next.svg", self.current_theme, rotation=90))
+                    else:
+                        self.btn_next.setIcon(get_icon("Next.svg", self.current_theme))
+        except Exception as e:
+            # Prevent freeze by ignoring errors in update_page, but try to report if possible
+            # We don't want to crash the main loop here if it's just a display update
+            import sys
+            sys.excepthook(type(e), e, e.__traceback__)
     
     def apply_settings(self):
         self.lbl_page_text.setText("页码")
@@ -1077,7 +1197,7 @@ class ToolBarWidget(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.current_theme = Theme.DARK
+        self.app_theme = Theme.DARK
         self.indicator = None
         self.was_checked = False
         self.current_pen_color = None
@@ -1087,7 +1207,6 @@ class ToolBarWidget(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         layout = QHBoxLayout()
-        # [修改] 与 PageNavWidget 保持完全一致的边距 (10, 5, 10, 5)
         layout.setContentsMargins(10, 5, 10, 5)
         
         self.container = QWidget()
@@ -1098,7 +1217,6 @@ class ToolBarWidget(QWidget):
         container_layout.setContentsMargins(10, 6, 10, 6)
         container_layout.setSpacing(10)
         
-        # [修改] 锁死高度为 50，与页码栏一致
         self.container.setFixedHeight(50)
         
         self.group = QButtonGroup(self)
@@ -1245,11 +1363,11 @@ class ToolBarWidget(QWidget):
             import qfluentwidgets
             theme = qfluentwidgets.theme()
             
-        self.current_theme = theme
+        self.app_theme = theme
         
         # Check for window effect
-        effect = self.property("windowEffect")
-        is_transparent = effect in ["Mica", "Acrylic"]
+        # effect = self.property("windowEffect")
+        is_transparent = False # effect in ["Mica", "Acrylic"]
         
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)" if not is_transparent else "rgba(255, 255, 255, 10)"
@@ -1262,7 +1380,6 @@ class ToolBarWidget(QWidget):
             text_color = "white"
             line_color = "rgba(255, 255, 255, 0.2)"
             
-        # [修改] 统一圆角为 25px，对应 50px 高度
         self.container.setStyleSheet(f"""
             QWidget#Container {{
                 background-color: {bg_color};
@@ -1272,8 +1389,8 @@ class ToolBarWidget(QWidget):
             }}
         """)
         
-        self.line1.setStyleSheet(f"color: {line_color};")
-        self.line2.setStyleSheet(f"color: {line_color};")
+        self.line1.setStyleSheet(f"color: {line_color}; background-color: {line_color};")
+        self.line2.setStyleSheet(f"color: {line_color}; background-color: {line_color};")
         
         # Update icons and button styles
         for btn, icon_name in [
@@ -1285,18 +1402,19 @@ class ToolBarWidget(QWidget):
             (self.btn_timer, "timer.svg"),
             (self.btn_exit, "Minimaze.svg")
         ]:
-            btn.setIcon(get_icon(icon_name, theme))
+            # Force update icon for theme
+            icon = get_icon(icon_name, theme)
+            btn.setIcon(icon)
             self.style_tool_btn(btn, theme) if btn.isCheckable() else self.style_action_btn(btn, theme)
         
-        indicator_color = "#D4A5A5" if theme == Theme.LIGHT else "#B38F8F"
         if self.indicator:
-            self.indicator.setStyleSheet(f"background-color: {indicator_color}; border-radius: 1px;")
+            self.update_indicator_color()
             self.update_indicator_for_current()
         self.update_pen_icon_state()
 
     def create_tool_btn(self, icon_name):
         btn = TransparentToolButton(parent=self)
-        btn.setIcon(get_icon(icon_name, self.current_theme))
+        btn.setIcon(get_icon(icon_name, self.app_theme))
         btn.setFixedSize(36, 36)
         btn.setIconSize(QSize(20, 20))
         btn.setCheckable(True)
@@ -1305,7 +1423,7 @@ class ToolBarWidget(QWidget):
         
     def create_action_btn(self, icon_name):
         btn = TransparentToolButton(parent=self)
-        btn.setIcon(get_icon(icon_name, self.current_theme))
+        btn.setIcon(get_icon(icon_name, self.app_theme))
         btn.setFixedSize(36, 36)
         btn.setIconSize(QSize(20, 20))
         # Style will be set in set_theme
@@ -1366,20 +1484,65 @@ class ToolBarWidget(QWidget):
             return "青"
         return "筆"
     
+    def get_high_contrast_color(self, color_int):
+        r = color_int & 0xFF
+        g = (color_int >> 8) & 0xFF
+        b = (color_int >> 16) & 0xFF
+        
+        c = QColor(r, g, b)
+        h = c.hue()
+        
+        if h != -1:
+            s = 255 
+            if self.app_theme == Theme.LIGHT:
+                l = 120 
+                if 45 <= h <= 180:
+                    l = 90
+            else:
+                l = 180
+                if 200 <= h <= 260:
+                    l = 220
+            
+            c.setHsl(h, s, l)
+        else:
+            # Achromatic
+            s = 0
+            l = 0 if self.app_theme == Theme.LIGHT else 255
+            c.setHsl(0, s, l)
+
+        return c.name()
+
     def update_pen_display(self, color):
         self.current_pen_color = color
-        r = color & 0xFF
-        g = (color >> 8) & 0xFF
-        b = (color >> 16) & 0xFF
-        char = self.get_pen_color_char(r, g, b)
-        self.btn_pen.setIcon(QIcon())
-        self.btn_pen.setText(char)
-        font = self.btn_pen.font()
-        font.setFamily("Meiryo UI")
-        font.setPixelSize(16)
-        font.setBold(True)
-        self.btn_pen.setFont(font)
-        self.style_tool_btn(self.btn_pen, self.current_theme)
+        
+        # Determine body color based on theme
+        body_color = "white"
+        if self.app_theme == Theme.LIGHT:
+            body_color = "#333333"
+            
+        # Convert selected color to hex for tip (using high contrast logic)
+        tip_color = self.get_high_contrast_color(color)
+        
+        # Path data split from original Pen.svg
+        # Path 1: Body
+        path_body = "M16.996 2.34419L21.6823 7.00397C21.8941 7.23343 22 7.49819 22 7.79825C22 8.09831 21.8941 8.35425 21.6823 8.56606L10.8271 19.4212L4.57877 13.1994L15.4339 2.34419C15.6457 2.11473 15.9017 2 16.2018 2C16.5195 2 16.7842 2.11473 16.996 2.34419Z"
+        # Path 2: Tip
+        path_tip = "M9.63571 20.5862L9.50333 20.6391L2.6725 21.9894C2.47834 22.0247 2.31066 21.9718 2.16946 21.8306C2.02825 21.707 1.97529 21.5481 2.01059 21.354L3.38736 14.5232C3.38736 14.4879 3.40502 14.4349 3.44032 14.3643L9.63571 20.5862Z"
+        
+        svg_content = f'''<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="{path_body}" fill="{body_color}"/>
+<path d="{path_tip}" fill="{tip_color}"/>
+</svg>'''
+        
+        # Create QIcon from SVG bytes
+        from PyQt6.QtGui import QPixmap
+        pm = QPixmap()
+        pm.loadFromData(svg_content.encode('utf-8'))
+        
+        self.btn_pen.setText("")
+        self.btn_pen.setIcon(QIcon(pm))
+        self.style_tool_btn(self.btn_pen, self.app_theme)
+        self.update_indicator_color()
     
     def on_tool_btn_toggled(self, checked):
         if not checked:
@@ -1387,15 +1550,28 @@ class ToolBarWidget(QWidget):
         btn = self.sender()
         self.update_indicator_geometry(btn)
         self.update_pen_icon_state()
+        self.update_indicator_color()
 
     def update_pen_icon_state(self):
         if self.btn_pen.isChecked() and self.current_pen_color is not None:
             self.update_pen_display(self.current_pen_color)
         else:
             self.btn_pen.setText("")
-            self.btn_pen.setIcon(get_icon("Pen.svg", self.current_theme))
-            self.style_tool_btn(self.btn_pen, self.current_theme)
+            self.btn_pen.setIcon(get_icon("Pen.svg", self.app_theme))
+            self.style_tool_btn(self.btn_pen, self.app_theme)
     
+    def update_indicator_color(self):
+        if not self.indicator:
+            return
+            
+        color = "#D4A5A5" if self.app_theme == Theme.LIGHT else "#B38F8F"
+        
+        # If Pen is selected and has a color
+        if self.btn_pen.isChecked() and self.current_pen_color is not None:
+            color = self.get_high_contrast_color(self.current_pen_color)
+                
+        self.indicator.setStyleSheet(f"background-color: {color}; border-radius: 1px;")
+
     def update_indicator_for_current(self):
         for btn in (self.btn_arrow, self.btn_pen, self.btn_eraser):
             if btn.isChecked():
@@ -1486,25 +1662,56 @@ class ClockWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
+        self.show_seconds = False
+        self.show_date = False
+        self.show_lunar = False
+        
         layout = QHBoxLayout()
+        # Add margins similar to PageNavWidget to avoid clipping and allow shadow if needed
+        # But wait, PageNavWidget seems to have small margins in layout?
+        # PageNavWidget uses 0 margins in layout but container has 0 margins?
+        # Actually PageNavWidget uses:
+        # layout = QHBoxLayout()
+        # layout.setContentsMargins(0, 0, 0, 0)
+        # self.container = QWidget()
+        # ...
+        # layout.addWidget(self.container)
+        
+        # But wait, shadows usually require margins in parent widget.
+        # Let's use small margins just in case.
         layout.setContentsMargins(0, 0, 0, 0)
         
         self.container = QWidget()
         self.container.setObjectName("Container")
         self.container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.container.setMinimumHeight(40)
         
-        inner_layout = QHBoxLayout(self.container)
-        inner_layout.setContentsMargins(16, 8, 16, 8)
-        inner_layout.setSpacing(6)
+        # Inner layout for text
+        inner_layout = QVBoxLayout(self.container)
+        inner_layout.setContentsMargins(12, 6, 12, 6)
+        inner_layout.setSpacing(2)
+        inner_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.lbl_time = QLabel()
         self.lbl_time.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.lbl_date = QLabel()
+        self.lbl_date.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_date.setObjectName("Date")
+        self.lbl_date.hide()
+        
+        self.lbl_lunar = QLabel()
+        self.lbl_lunar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_lunar.setObjectName("Lunar")
+        self.lbl_lunar.hide()
+        
         self.lbl_extra = QLabel()
         self.lbl_extra.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_extra.setObjectName("Extra")
         self.lbl_extra.hide()
+        
         inner_layout.addWidget(self.lbl_time)
+        inner_layout.addWidget(self.lbl_date)
+        inner_layout.addWidget(self.lbl_lunar)
         inner_layout.addWidget(self.lbl_extra)
         
         layout.addWidget(self.container)
@@ -1517,14 +1724,76 @@ class ClockWidget(QWidget):
         self.update_time()
         self.set_theme(Theme.AUTO)
         
+    def apply_settings(self, cfg):
+        self.show_seconds = cfg.clockShowSeconds.value
+        self.show_date = cfg.clockShowDate.value
+        self.show_lunar = cfg.clockShowLunar.value
+        
+        weight_map = {
+            "Light": QFont.Weight.Light,
+            "Normal": QFont.Weight.Normal,
+            "DemiBold": QFont.Weight.DemiBold,
+            "Bold": QFont.Weight.Bold
+        }
+        w = weight_map.get(cfg.clockFontWeight.value, QFont.Weight.Bold)
+        
+        # Time Label Font
+        font = self.lbl_time.font()
+        font.setWeight(w)
+        font.setPixelSize(20)
+        self.lbl_time.setFont(font)
+        
+        # Date/Lunar/Extra Font
+        small_font = self.lbl_date.font()
+        small_font.setWeight(QFont.Weight.Normal)
+        small_font.setPixelSize(12)
+        
+        self.lbl_date.setFont(small_font)
+        self.lbl_lunar.setFont(small_font)
+        self.lbl_extra.setFont(small_font)
+        
+        self.update_time()
+        self.adjustSize()
+        QTimer.singleShot(0, self._update_radius)
+        
     def update_time(self):
         now = QDateTime.currentDateTime()
         hour = now.time().hour()
         minute = now.time().minute()
         period = "上午" if hour < 12 else "下午"
         time_str = f"{period} {hour:02d}:{minute:02d}"
+        
+        if self.show_seconds:
+             time_str += f":{now.time().second():02d}"
+             
         self.lbl_time.setText(time_str)
         
+        if self.show_date:
+            week_days = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+            wd = week_days[now.date().dayOfWeek() - 1]
+            date_str = f"{now.date().year()}年{now.date().month()}月{now.date().day()}日 {wd}"
+            self.lbl_date.setText(date_str)
+            self.lbl_date.setVisible(True)
+        else:
+            self.lbl_date.setVisible(False)
+            
+        # Use lunardate if zhdate is missing
+        if self.show_lunar:
+            try:
+                from zhdate import ZhDate
+                lunar = ZhDate.from_datetime(now.toPyDateTime())
+                self.lbl_lunar.setText(f"农历{lunar.chinese()}")
+            except ImportError:
+                try:
+                    from lunardate import LunarDate
+                    lunar = LunarDate.fromSolarDate(now.date().year(), now.date().month(), now.date().day())
+                    self.lbl_lunar.setText(f"农历{lunar.month}月{lunar.day}日")
+                except ImportError:
+                    self.lbl_lunar.setText("农历(缺库)")
+            self.lbl_lunar.setVisible(True)
+        else:
+            self.lbl_lunar.setVisible(False)
+            
     def format_time(self, seconds):
         h = seconds // 3600
         m = (seconds % 3600) // 60
@@ -1549,21 +1818,27 @@ class ClockWidget(QWidget):
         self.lbl_extra.setText(text)
         self.lbl_extra.setVisible(bool(text))
     
-    def show_countdown_finished(self):
-        self.countdown_finished = True
-        self.lbl_extra.setText("倒计时已结束")
-        self.lbl_extra.setVisible(True)
-        
-    def set_theme(self, theme):
-        if theme == Theme.AUTO:
-            import qfluentwidgets
-            theme = qfluentwidgets.theme()
+        # Calculate dynamic border radius based on height
+        # Use QTimer to delay the calculation until layout is done
+        QTimer.singleShot(0, self._update_radius)
             
-        self.current_theme = theme
+    def _update_radius(self):
+        # Ensure we get the correct height from container
+        h = self.container.height()
+        if h <= 0:
+            h = self.container.sizeHint().height()
+            
+        # Ensure minimum height for pill shape
+        if h < 40: h = 40
+            
+        radius = int(h / 2)
+        
+        # Apply theme with dynamic radius
+        theme = self.current_theme
         
         # Check for window effect
-        effect = self.property("windowEffect")
-        is_transparent = effect in ["Mica", "Acrylic"]
+        # effect = self.property("windowEffect")
+        is_transparent = False # effect in ["Mica", "Acrylic"]
         
         if theme == Theme.LIGHT:
             bg_color = "rgba(255, 255, 255, 240)" if not is_transparent else "rgba(255, 255, 255, 10)"
@@ -1579,18 +1854,33 @@ class ClockWidget(QWidget):
                 background-color: {bg_color};
                 border: 1px solid {border_color};
                 border-bottom: 1px solid {border_color};
-                border-radius: 20px;
+                border-radius: {radius}px;
             }}
             QLabel {{
-                font-size: 16px;
-                font-weight: bold;
                 color: {text_color};
-            }}
-            QLabel#Extra {{
-                font-size: 11px;
-                font-weight: normal;
+                background: transparent;
+                border: none;
             }}
         """)
+        
+    def show_countdown_finished(self):
+        self.countdown_finished = True
+        self.lbl_extra.setText("倒计时已结束")
+        self.lbl_extra.setVisible(True)
+        self.adjustSize()
+        QTimer.singleShot(0, self._update_radius)
+        
+    def set_theme(self, theme):
+        if theme == Theme.AUTO:
+            import qfluentwidgets
+            theme = qfluentwidgets.theme()
+            
+        self.current_theme = theme
+        self._update_radius()
+
+    def resizeEvent(self, e):
+        QTimer.singleShot(0, self._update_radius)
+        super().resizeEvent(e)
 
 
 class TimerWindow(QWidget):
@@ -1865,8 +2155,8 @@ class TimerWindow(QWidget):
         self.current_theme = theme
         
         # Check for window effect
-        effect = self.property("windowEffect")
-        is_transparent = effect in ["Mica", "Acrylic"]
+        # effect = self.property("windowEffect")
+        is_transparent = False # effect in ["Mica", "Acrylic"]
         
         # Resolve AUTO theme
         if theme == Theme.AUTO:

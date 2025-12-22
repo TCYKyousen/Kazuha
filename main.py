@@ -3,8 +3,9 @@ import os
 import traceback
 from datetime import datetime
 from PyQt6.QtWidgets import QApplication
-from controllers.business_logic import BusinessLogicController
+from controllers.business_logic import BusinessLogicController, cfg
 from ui.widgets import ToolBarWidget, PageNavWidget, SpotlightOverlay, ClockWidget
+from crash_handler import CrashAwareApplication, CrashHandler
 
 def setup_logging():
     try:
@@ -36,21 +37,30 @@ def main():
     # Enable high DPI scaling
     from PyQt6.QtCore import Qt
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseDesktopOpenGL)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     
     try:
-        app = QApplication(sys.argv)
+        crash_handler = CrashHandler(log_path=log_path)
+        crash_handler.install()
+        app = CrashAwareApplication(sys.argv, crash_handler)
         app.setQuitOnLastWindowClosed(False)
         
         log_message("Initializing Controller...")
         controller = BusinessLogicController()
-        controller.set_font("Bahnschrift")
+        controller.set_font()
         
         # Initialize UI components
         log_message("Initializing UI...")
+        
+        nav_pos = cfg.navPosition.value
+        orientation = Qt.Orientation.Vertical if nav_pos == "MiddleSides" else Qt.Orientation.Horizontal
+        
         controller.toolbar = ToolBarWidget()
-        controller.nav_left = PageNavWidget(is_right=False)
-        controller.nav_right = PageNavWidget(is_right=True)
+        controller.nav_left = PageNavWidget(is_right=False, orientation=orientation)
+        controller.nav_right = PageNavWidget(is_right=True, orientation=orientation)
         controller.clock_widget = ClockWidget()
+        controller.clock_widget.apply_settings(cfg)
         controller.spotlight = SpotlightOverlay()
         
         # Setup connections between UI and business logic
@@ -66,13 +76,21 @@ def main():
         sys.exit(app.exec())
     except Exception as e:
         log_message(f"CRITICAL ERROR: {str(e)}\n{traceback.format_exc()}")
-        # Show error message box if possible
         try:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.critical(None, "Error", f"Application failed to start:\n{str(e)}")
-        except:
+            app = QApplication.instance()
+            if app is None:
+                crash_handler = CrashHandler(log_path=log_path)
+                app = CrashAwareApplication(sys.argv, crash_handler)
+            else:
+                crash_handler = CrashHandler(log_path=log_path)
+
+            crash_handler.handle(type(e), e, e.__traceback__)
+        except Exception:
             pass
         sys.exit(1)
 
 if __name__ == '__main__':
+    # Ensure multiprocessing support for Windows (freeze_support)
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()

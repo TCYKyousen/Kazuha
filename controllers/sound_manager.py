@@ -67,3 +67,25 @@ class SoundManager:
                 self.speaker.Speak(text, 1)
             except Exception as e:
                 print(f"TTS Error: {e}")
+
+    def cleanup(self):
+        """Clean up all media players and resources."""
+        for key in list(self.players.keys()):
+            try:
+                player = self.players[key]
+                player.stop()
+                player.setSource(QUrl())
+                player.setAudioOutput(None)
+                self.players.pop(key)
+            except:
+                pass
+        
+        for key in list(self.outputs.keys()):
+            try:
+                self.outputs.pop(key)
+            except:
+                pass
+        
+        self.players.clear()
+        self.outputs.clear()
+        self.speaker = None

@@ -4,10 +4,8 @@
 > 如果您对此类项目有固有的排斥感，请无视此项目，谢谢。
 ---
 
-<div align="center">
-    <img src="https://github.com/Haraguse/Kazuha/blob/main/icons/trayicon.svg" alt="Kazuha Logo" width="100"/>
-    <h1>Kazuha 万叶演示助手</h1>
-    <p>一款能平替希沃演示助手部分功能的演示工具。</p>
+<img width="6000" height="2880" alt="Kazuha Banner" src="https://github.com/user-attachments/assets/8bfc7e2f-afc9-406b-ad2f-fdae9dd00c9d" />
+
     
 [![Latest Release](https://img.shields.io/github/v/release/TCYKyousen/Kazuha?style=for-the-badge)](https://github.com/TCYKyousen/Kazuha/releases)
 [![License](https://img.shields.io/github/license/TCYKyousen/Kazuha?style=for-the-badge)](https://github.com/TCYKyousen/Kazuha/blob/main/LICENSE) 

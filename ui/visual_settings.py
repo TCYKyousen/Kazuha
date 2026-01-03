@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
-from PyQt6.QtCore import Qt, QTimer, QDateTime, QCoreApplication, QRectF
-from PyQt6.QtGui import QFont, QRegion, QPainterPath
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
+from PySide6.QtCore import Qt, QTimer, QDateTime, QCoreApplication, QRectF
+from PySide6.QtGui import QFont, QRegion, QPainterPath
 from qfluentwidgets import SettingCard, Theme, isDarkTheme, ComboBox, SwitchButton, PushButton, BodyLabel
 
 

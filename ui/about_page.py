@@ -1,8 +1,8 @@
 import os
 import json
-from PyQt6.QtCore import Qt, QCoreApplication, QRect
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from PyQt6.QtGui import QPixmap, QPainter, QColor, QLinearGradient
+from PySide6.QtCore import Qt, QCoreApplication, QRect
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtGui import QPixmap, QPainter, QColor, QLinearGradient
 from qfluentwidgets import (ScrollArea, LargeTitleLabel, BodyLabel, CaptionLabel, 
                             PrimaryPushSettingCard, SettingCard, FluentIcon as FIF,
                             TransparentPushButton, TitleLabel, isDarkTheme, ImageLabel,
@@ -22,10 +22,10 @@ class ThirdPartyLibsDialog(MessageBoxBase):
         self.textEdit.setFixedHeight(300)
         
         libs_info = (
-            "PyQt6: https://www.riverbankcomputing.com/software/pyqt/\n"
-            "PyQt6-Fluent-Widgets: https://github.com/zhiyiYo/PyQt-Fluent-Widgets\n"
-            "PyQt6-Charts: https://pypi.org/project/PyQt6-Charts/\n"
-            "PyQt6-WebEngine: https://pypi.org/project/PyQt6-WebEngine/\n"
+            "PySide6: https://www.qt.io/qt-for-python\n"
+            "PySide6-Fluent-Widgets: https://github.com/zhiyiYo/PySide6-Fluent-Widgets\n"
+            "PySide6-Charts: https://pypi.org/project/PySide6-Charts/\n"
+            "PySide6-WebEngine: https://pypi.org/project/PySide6-WebEngine/\n"
             "requests: https://github.com/psf/requests\n"
             "Pillow: https://github.com/python-pillow/Pillow\n"
             "python-pptx: https://github.com/scanny/python-pptx\n"

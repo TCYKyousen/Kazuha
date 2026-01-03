@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置 - Kazuha</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="qwebchannel.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span>⚙️ 设置</span>
+        </div>
+        <div class="nav-item active" data-page="general">
+            <span>常规</span>
+        </div>
+        <div class="nav-item" data-page="interface">
+            <span>界面</span>
+        </div>
+        <div class="nav-item" data-page="features">
+            <span>功能</span>
+        </div>
+        <div class="nav-item" data-page="update">
+            <span>更新</span>
+        </div>
+        <div class="nav-item" data-page="about">
+            <span>关于</span>
+        </div>
+        <div class="nav-item" data-page="debug">
+            <span>调试</span>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- General Page -->
+        <div id="general" class="page active">
+            <h1>常规</h1>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🚀</div>
+                    <div class="setting-info">
+                        <div class="setting-title">开机自启</div>
+                        <div class="setting-desc">在系统启动时自动运行 Kazuha</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="enableStartUp">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🔔</div>
+                    <div class="setting-info">
+                        <div class="setting-title">系统通知</div>
+                        <div class="setting-desc">允许 Kazuha 发送系统通知消息</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="enableSystemNotification">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🔄</div>
+                    <div class="setting-info">
+                        <div class="setting-title">自动检查更新</div>
+                        <div class="setting-desc">在启动时自动检查新版本</div>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="checkUpdateOnStart">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Interface Page -->
+        <div id="interface" class="page">
+            <h1>界面</h1>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🎨</div>
+                    <div class="setting-info">
+                        <div class="setting-title">应用主题</div>
+                        <div class="setting-desc">调整应用的外观颜色模式</div>
+                    </div>
+                </div>
+                <select id="themeModeIndex">
+                    <option value="0">浅色</option>
+                    <option value="1">深色</option>
+                    <option value="2">跟随系统</option>
+                </select>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">📏</div>
+                    <div class="setting-info">
+                        <div class="setting-title">屏幕边距</div>
+                        <div class="setting-desc">调整所有组件距离屏幕边缘的距离</div>
+                    </div>
+                </div>
+                <select id="screenPaddingIndex">
+                    <option value="0">较小</option>
+                    <option value="1">正常</option>
+                    <option value="2">较大</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Features Page -->
+        <div id="features" class="page">
+            <h1>功能</h1>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">⏱️</div>
+                    <div class="setting-info">
+                        <div class="setting-title">计时器位置</div>
+                        <div class="setting-desc">调整计时器在屏幕上的显示位置</div>
+                    </div>
+                </div>
+                <select id="timerPositionIndex">
+                    <option value="0">居中</option>
+                    <option value="1">左上角</option>
+                    <option value="2">右上角</option>
+                    <option value="3">左下角</option>
+                    <option value="4">右下角</option>
+                </select>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">📑</div>
+                    <div class="setting-info">
+                        <div class="setting-title">翻页组件位置</div>
+                        <div class="setting-desc">调整翻页按钮在屏幕上的显示位置</div>
+                    </div>
+                </div>
+                <select id="navPositionIndex">
+                    <option value="0">底部两侧</option>
+                    <option value="1">中部两侧</option>
+                </select>
+            </div>
+            
+            <div class="setting-group">
+                <h3>悬浮时钟</h3>
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <div class="setting-icon">🕰️</div>
+                        <div class="setting-info">
+                            <div class="setting-title">启用悬浮时钟</div>
+                            <div class="setting-desc">在屏幕上显示一个可自定义的悬浮时钟窗口</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="enableClock">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <div class="setting-info">
+                            <div class="setting-title">时钟位置</div>
+                        </div>
+                    </div>
+                    <select id="clockPositionIndex">
+                        <option value="0">左上角</option>
+                        <option value="1">右上角</option>
+                        <option value="2">左下角</option>
+                        <option value="3">右下角</option>
+                    </select>
+                </div>
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <div class="setting-info">
+                            <div class="setting-title">显示秒</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="clockShowSeconds">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <div class="setting-info">
+                            <div class="setting-title">显示日期</div>
+                        </div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="clockShowDate">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <div class="setting-info">
+                            <div class="setting-title">字体粗细</div>
+                        </div>
+                    </div>
+                    <select id="clockFontWeightIndex">
+                        <option value="0">Light</option>
+                        <option value="1">Normal</option>
+                        <option value="2">DemiBold</option>
+                        <option value="3">Bold</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Page -->
+        <div id="update" class="page">
+            <h1>更新</h1>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">⬇️</div>
+                    <div class="setting-info">
+                        <div class="setting-title" id="updateStatusTitle">检查更新</div>
+                        <div class="setting-desc" id="updateLastCheckText">点击按钮检查更新</div>
+                    </div>
+                </div>
+                <button class="primary" id="btnCheckUpdate">检查更新</button>
+            </div>
+            <div class="setting-card" style="align-items: flex-start; flex-direction: column;">
+                <div class="setting-header" style="width: 100%; margin-bottom: 10px;">
+                    <div class="setting-info">
+                        <div class="setting-title">更新日志</div>
+                    </div>
+                </div>
+                <pre id="updateLogs" style="background: #f0f0f0; padding: 10px; width: 100%; box-sizing: border-box; border-radius: 4px; overflow-x: auto; font-family: monospace; white-space: pre-wrap;"></pre>
+            </div>
+        </div>
+
+        <!-- About Page -->
+        <div id="about" class="page">
+            <h1>关于</h1>
+            <div class="setting-card" style="justify-content: center; flex-direction: column; text-align: center; padding: 40px;">
+                <h2 style="margin: 0;">Kazuha</h2>
+                <p style="color: var(--secondary-text); margin: 5px 0 20px 0;">Version <span id="versionText">...</span></p>
+                <p>一个基于 Python 和 PySide6 开发的幻灯片演示增强工具。</p>
+            </div>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">👥</div>
+                    <div class="setting-info">
+                        <div class="setting-title">开发者</div>
+                        <div class="setting-desc">了解背后的开发团队</div>
+                    </div>
+                </div>
+                <button>查看详情</button>
+            </div>
+        </div>
+
+        <!-- Debug Page -->
+        <div id="debug" class="page">
+            <h1>调试</h1>
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🐞</div>
+                    <div class="setting-info">
+                        <div class="setting-title">WebEngine 测试</div>
+                        <div class="setting-desc">如果看到这个页面，说明 Web 引擎工作正常</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

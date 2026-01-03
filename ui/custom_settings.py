@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGridLayout
-from PyQt6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, pyqtProperty, QCoreApplication
-from PyQt6.QtGui import QPainter, QColor, QPen, QPainterPath
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGridLayout
+from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, Property, QCoreApplication
+from PySide6.QtGui import QPainter, QColor, QPen, QPainterPath
 from qfluentwidgets import OptionsSettingCard, Theme, isDarkTheme, themeColor, SettingCard, PushButton, BodyLabel, SpinBox, SwitchButton
 
 
@@ -33,7 +33,7 @@ class SchematicOptionButton(QWidget):
         self._hover_progress = v
         self.update()
         
-    hoverProgress = pyqtProperty(float, get_hover_progress, set_hover_progress)
+    hoverProgress = Property(float, get_hover_progress, set_hover_progress)
     
     def get_click_scale(self):
         return self._click_scale
@@ -42,7 +42,7 @@ class SchematicOptionButton(QWidget):
         self._click_scale = v
         self.update()
         
-    clickScale = pyqtProperty(float, get_click_scale, set_click_scale)
+    clickScale = Property(float, get_click_scale, set_click_scale)
     
     def setChecked(self, checked):
         if self._is_checked != checked:
@@ -465,7 +465,7 @@ class ScreenPaddingPreview(QWidget):
         painter.fillRect(rect, bg)
         inner = QRectF(rect.adjusted(6, 6, -6, -6))
         painter.setPen(Qt.PenStyle.NoPen)
-        from PyQt6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication
         screen = QApplication.primaryScreen()
         if screen is not None:
             g = screen.geometry()
@@ -535,8 +535,8 @@ class ScreenPaddingSettingCard(SettingCard):
         self.hBoxLayout.addSpacing(16)
 
     def _show_config_overlay(self):
-        from PyQt6.QtWidgets import QWidget
-        from PyQt6.QtCore import QSize
+        from PySide6.QtWidgets import QWidget
+        from PySide6.QtCore import QSize
         from qfluentwidgets import MessageBoxBase, SubtitleLabel
         from controllers.business_logic import cfg
 

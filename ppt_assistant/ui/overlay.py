@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QApplication, QLabel, QGraphicsDropShadowEffect, QPushButton, QSwipeGesture, QGestureEvent
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QApplication, QLabel, QPushButton, QSwipeGesture, QGestureEvent, QGridLayout, QStyleOption, QStyle
 from PySide6.QtCore import Qt, Signal, QSize, QPoint, QEvent, QTimer, QTime
 from PySide6.QtGui import QColor, QIcon, QPainter, QBrush, QPen, QPixmap, QGuiApplication
 from PySide6.QtSvg import QSvgRenderer
@@ -43,6 +43,9 @@ _TRANSLATIONS = {
         "toolbar.undo": "上一步",
         "toolbar.redo": "下一步",
         "toolbar.end_show": "结束放映",
+        "toolbar.page": "页码",
+        "toolbar.theme_colors": "主题颜色",
+        "toolbar.standard_colors": "标准颜色",
     },
     "zh-TW": {
         "status.media_length": "媒體時長",
@@ -53,6 +56,9 @@ _TRANSLATIONS = {
         "toolbar.undo": "上一步",
         "toolbar.redo": "下一步",
         "toolbar.end_show": "結束播放",
+        "toolbar.page": "頁碼",
+        "toolbar.theme_colors": "主題顏色",
+        "toolbar.standard_colors": "标准颜色",
     },
     "ja-JP": {
         "status.media_length": "メディア長さ",
@@ -63,6 +69,9 @@ _TRANSLATIONS = {
         "toolbar.undo": "戻る",
         "toolbar.redo": "進む",
         "toolbar.end_show": "スライド終了",
+        "toolbar.page": "ページ番号",
+        "toolbar.theme_colors": "テーマの色",
+        "toolbar.standard_colors": "標準の色",
     },
     "en-US": {
         "status.media_length": "Media duration",
@@ -72,7 +81,10 @@ _TRANSLATIONS = {
         "toolbar.eraser": "Eraser",
         "toolbar.undo": "Undo",
         "toolbar.redo": "Redo",
-        "toolbar.end_show": "End show",
+        "toolbar.end_show": "End Show",
+        "toolbar.page": "Page number",
+        "toolbar.theme_colors": "Theme Colors",
+        "toolbar.standard_colors": "Standard Colors",
     },
 }
 
@@ -240,19 +252,23 @@ class StatusBarWidget(QFrame):
         self._is_light = is_light
         if is_light:
             fg = "#191919"
-            bg = "rgba(255, 255, 255, 0.75)"
+            bg = "rgba(255, 255, 255, 0.8)"
+            border = "rgba(0, 0, 0, 0.1)"
         else:
             fg = "#FFFFFF"
-            bg = "rgba(16, 16, 16, 0.75)"
+            bg = "rgba(28, 28, 30, 0.78)"
+            border = "rgba(255, 255, 255, 0.12)"
+            
         self.setStyleSheet(
             f"""
             StatusBarWidget {{
                 background-color: {bg};
-                border-bottom: 1px solid rgba(0, 0, 0, 0);
+                border-bottom: 0.5px solid {border};
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans VF','MiSans','Segoe UI';
+                font-family: 'MiSans', 'SF Pro Text', 'HarmonyOS Sans SC', 'Microsoft YaHei';
+                font-size: 12px;
             }}
             IconWidget {{
                 color: {fg};
@@ -277,48 +293,103 @@ class PenColorPopup(QFrame):
 
     def __init__(self, parent=None, colors=None, is_light=False):
         super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint)
-        self.colors = colors or []
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        
+        # Office Standard Colors + Theme Colors (approximate)
+        # Standard Colors
+        self.standard_colors = [
+            (192, 0, 0), (255, 0, 0), (255, 192, 0), (255, 255, 0), (146, 208, 80),
+            (0, 176, 80), (0, 176, 240), (0, 112, 192), (0, 32, 96), (112, 48, 160)
+        ]
+        
+        # Theme Base Colors (Office default theme)
+        self.theme_bases = [
+            (255, 255, 255), (0, 0, 0), (231, 230, 230), (68, 84, 106), (68, 114, 196),
+            (237, 125, 49), (165, 165, 165), (255, 192, 0), (91, 155, 213), (112, 173, 71)
+        ]
         
         bg = "white" if is_light else "rgb(32, 32, 32)"
         border = "rgba(0, 0, 0, 0.08)" if is_light else "rgba(255, 255, 255, 0.1)"
+        fg = "black" if is_light else "white"
         
-        self.setStyleSheet(f"""
-            PenColorPopup {{
+        # Main layout for the popup window
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Container for content and background
+        self.container = QFrame(self)
+        self.container.setObjectName("PenColorContainer")
+        self.container.setStyleSheet(f"""
+            #PenColorContainer {{
                 background-color: {bg};
                 border-radius: 12px;
                 border: 1px solid {border};
             }}
+            QLabel {{
+                color: {fg};
+                font-family: 'MiSans', 'HarmonyOS Sans SC', 'Microsoft YaHei';
+                font-size: 11px;
+                font-weight: 500;
+                background: transparent;
+            }}
         """)
+        self.layout.addWidget(self.container)
+
+        main_layout = QVBoxLayout(self.container)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
+
+        # Theme Colors
+        theme_label = QLabel(_t("toolbar.theme_colors"), self.container)
+        main_layout.addWidget(theme_label)
         
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(15)
-        shadow.setColor(QColor(0, 0, 0, 40))
-        shadow.setOffset(0, 4)
-        self.setGraphicsEffect(shadow)
+        theme_grid = QGridLayout()
+        theme_grid.setSpacing(4)
+        for i, (r, g, b) in enumerate(self.theme_bases):
+            btn = self._create_color_btn(r, g, b)
+            theme_grid.addWidget(btn, 0, i)
+        main_layout.addLayout(theme_grid)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(6)
-        for r, g, b in self.colors:
-            btn = QPushButton(self)
-            btn.setFixedSize(22, 22)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: rgb({r}, {g}, {b});
-                    border-radius: 11px;
-                    border: 1px solid rgba(0, 0, 0, 0.1);
-                }}
-                QPushButton:hover {{
-                    border: 1px solid rgba(0, 0, 0, 0.3);
-                }}
-            """)
-            btn.clicked.connect(lambda _, r=r, g=g, b=b: self._on_color_clicked(r, g, b))
-            layout.addWidget(btn)
+        # Standard Colors
+        std_label = QLabel(_t("toolbar.standard_colors"), self.container)
+        main_layout.addWidget(std_label)
+        
+        std_grid = QGridLayout()
+        std_grid.setSpacing(4)
+        for i, (r, g, b) in enumerate(self.standard_colors):
+            btn = self._create_color_btn(r, g, b)
+            std_grid.addWidget(btn, 0, i)
+        main_layout.addLayout(std_grid)
 
-    def _on_color_clicked(self, r, g, b):
+    def _create_color_btn(self, r, g, b):
+        btn = QPushButton(self.container)
+        btn.setFixedSize(20, 20)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgb({r}, {g}, {b});
+                border-radius: 4px;
+                border: 1px solid rgba(0, 0, 0, 0.1);
+            }}
+            QPushButton:hover {{
+                border: 2px solid white;
+            }}
+        """)
+        btn.clicked.connect(lambda: self._select_color(r, g, b))
+        return btn
+
+    def _select_color(self, r, g, b):
         self.color_selected.emit(r, g, b)
         self.close()
+
+    def paintEvent(self, event):
+        # Ensure QSS is applied even for custom widgets
+        opt = QStyleOption()
+        opt.initFrom(self)
+        painter = QPainter(self)
+        self.style().drawPrimitive(QStyle.PE_Widget, opt, painter, self)
+        super().paintEvent(event)
 
 class CustomToolButton(QFrame):
     clicked = Signal()
@@ -347,9 +418,10 @@ class CustomToolButton(QFrame):
         self.text_label.setAlignment(Qt.AlignCenter)
         self.text_label.setStyleSheet("""
             QLabel {
-                font-size: 11px;
+                font-size: 9px;
+                font-weight: 400;
                 font-family: 'MiSans', 'HarmonyOS Sans SC', 'Microsoft YaHei';
-                color: rgba(255, 255, 255, 0.9);
+                color: rgba(255, 255, 255, 0.6);
                 background: transparent;
             }
         """)
@@ -624,11 +696,17 @@ class OverlayWindow(QWidget):
     
     def __init__(self):
         super().__init__()
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         # Add this attribute to fix UpdateLayeredWindowIndirect error on some systems
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WA_PaintOnScreen, False)
+        
+        # Set taskbar icon
+        icon_path = os.path.join(ICON_DIR, "overlayicon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+            
         self.setWindowTitle(_t("overlay.title"))
         self.status_bar = None
         self.plugins = []
@@ -831,6 +909,10 @@ class OverlayWindow(QWidget):
         self.left_flipper.move(margin, y_pos)
         self.right_flipper.move(w - flipper_w - margin, y_pos)
 
+        if self.status_bar and self.status_bar.isVisible():
+            self.status_bar.setFixedWidth(w)
+            self.status_bar.move(0, 0)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.update_layout()
@@ -869,12 +951,7 @@ class ToolbarWidget(QFrame):
         self.update_layout_style()
         
         cfg.showToolbarText.valueChanged.connect(self.update_layout_style)
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(20)
-        shadow.setColor(QColor(0, 0, 0, 80))
-        shadow.setOffset(0, 4)
-        self.setGraphicsEffect(shadow)
-
+    
     def sizeHint(self):
         return self.layout.sizeHint()
 
@@ -959,6 +1036,9 @@ class ToolbarWidget(QFrame):
 
     def _on_pen_color_selected(self, r, g, b):
         self.pen_color_changed.emit(r, g, b)
+        # In new version, PenColorPopup.close() is called inside popup
+        # Re-sync style if needed
+        self.btn_pen.update_style(True, self._is_light, use_indicator=True)
 
     def _on_tool_changed(self, tool_name, signal):
         old_tool = self.current_tool
@@ -1114,12 +1194,6 @@ class PageFlipWidget(QFrame):
         self.update_style()
         self.setFixedSize(140, self.h_val)
         
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(16)
-        shadow.setColor(QColor(0, 0, 0, 60))
-        shadow.setOffset(0, 4)
-        self.setGraphicsEffect(shadow)
-        
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(5, 5, 5, 5)
         self.layout.setSpacing(4)
@@ -1128,17 +1202,38 @@ class PageFlipWidget(QFrame):
         self.btn_prev = PageFlipButton("Previous.svg", self)
         self.btn_prev.btn_clicked.connect(self.clicked_prev.emit)
         
-        self.lbl_page = ClickableLabel("0/0", self)
+        # Page info container with optional hint
+        self.page_container = QFrame(self)
+        self.page_layout = QVBoxLayout(self.page_container)
+        self.page_layout.setContentsMargins(0, 0, 0, 0)
+        self.page_layout.setSpacing(2)
+        self.page_layout.setAlignment(Qt.AlignCenter)
+        
+        self.lbl_page = ClickableLabel("0/0", self.page_container)
         self.lbl_page.setFixedWidth(52)
         self.lbl_page.setAlignment(Qt.AlignCenter)
         self.lbl_page.clicked.connect(self.page_clicked.emit)
+        
+        self.lbl_hint = QLabel(_t("toolbar.page"), self.page_container)
+        self.lbl_hint.setAlignment(Qt.AlignCenter)
+        self.lbl_hint.setObjectName("PageHint")
+        self.lbl_hint.setVisible(cfg.showToolbarText.value)
+        
+        self.page_layout.addWidget(self.lbl_page)
+        self.page_layout.addWidget(self.lbl_hint)
         
         self.btn_next = PageFlipButton("Next.svg", self)
         self.btn_next.btn_clicked.connect(self.clicked_next.emit)
         
         self.layout.addWidget(self.btn_prev)
-        self.layout.addWidget(self.lbl_page)
+        self.layout.addWidget(self.page_container)
         self.layout.addWidget(self.btn_next)
+        
+        cfg.showToolbarText.valueChanged.connect(self._on_show_text_changed)
+
+    def _on_show_text_changed(self, show):
+        self.lbl_hint.setVisible(show)
+        self.update_style(False) # Refresh styles if needed
 
     def set_page_info(self, current, total):
         self.lbl_page.setText(f"{current}/{total}")
@@ -1148,6 +1243,7 @@ class PageFlipWidget(QFrame):
         bg = "rgba(28, 28, 30, 0.78)"
         border = "rgba(255, 255, 255, 0.12)"
         fg = "white"
+        hint_fg = "rgba(255, 255, 255, 0.6)"
         
         radius = self.h_val // 2
         
@@ -1160,8 +1256,14 @@ class PageFlipWidget(QFrame):
             QLabel {{
                 color: {fg};
                 font-family: 'MiSans', 'SF Pro Text', 'HarmonyOS Sans SC', 'Microsoft YaHei';
-                font-size: 11.5px;
+                font-size: 12px;
                 font-weight: 400;
                 background: transparent;
+                border: none;
+            }}
+            QLabel#PageHint {{
+                font-size: 9px;
+                font-weight: 400;
+                color: {hint_fg};
             }}
         """)

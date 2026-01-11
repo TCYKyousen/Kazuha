@@ -35,6 +35,17 @@ def apply_win11_aesthetics(window):
                 ctypes.byref(corner_preference), 
                 ctypes.sizeof(corner_preference)
             )
+            
+            # Set Window Icon (WM_SETICON)
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            icon_path = os.path.join(root_dir, "icons", "settings.png")
+            if os.path.exists(icon_path):
+                # IMAGE_ICON = 1, LR_LOADFROMFILE = 0x00000010
+                hicon = ctypes.windll.user32.LoadImageW(0, icon_path, 1, 0, 0, 0x00000010)
+                if hicon:
+                    # WM_SETICON = 0x0080, ICON_SMALL = 0, ICON_BIG = 1
+                    ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 0, hicon)
+                    ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, hicon)
         except Exception as e:
             pass
 
@@ -297,17 +308,7 @@ def main():
         try: os.makedirs(storage_path)
         except: pass
     
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    settings_icon_path = os.path.join(root_dir, "icons", "settings.svg")
-    kwargs = {
-        "gui": "edgechromium",
-        "debug": False,
-        "storage_path": storage_path
-    }
-    if os.path.exists(settings_icon_path):
-        kwargs["icon"] = settings_icon_path
-        
-    webview.start(apply_win11_aesthetics, window, **kwargs)
+    webview.start(apply_win11_aesthetics, window, gui='edgechromium', debug=False, storage_path=storage_path)
 
 if __name__ == "__main__":
     main()

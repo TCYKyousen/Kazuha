@@ -8,7 +8,7 @@ import sys
 import tempfile
 import json
 import subprocess
-from ppt_assistant.core.config import cfg
+from ppt_assistant.core.config import cfg, SETTINGS_PATH
 from qfluentwidgets import FluentWidget, FluentIcon as FIF, BodyLabel, IconWidget, themeColor
 
 try:
@@ -18,6 +18,72 @@ except ImportError:
 
 ICON_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "icons")
 PLUGIN_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "plugins", "builtins")
+
+
+def _load_language():
+    try:
+        if os.path.exists(SETTINGS_PATH):
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("General", {}).get("Language", "zh-CN")
+    except Exception:
+        return "zh-CN"
+    return "zh-CN"
+
+
+LANGUAGE = _load_language()
+
+_TRANSLATIONS = {
+    "zh-CN": {
+        "status.media_length": "媒体时长",
+        "overlay.title": "顶层效果窗口",
+        "toolbar.select": "选择",
+        "toolbar.pen": "画笔",
+        "toolbar.eraser": "橡皮",
+        "toolbar.undo": "上一步",
+        "toolbar.redo": "下一步",
+        "toolbar.end_show": "结束放映",
+    },
+    "zh-TW": {
+        "status.media_length": "媒體時長",
+        "overlay.title": "頂層效果視窗",
+        "toolbar.select": "選取",
+        "toolbar.pen": "畫筆",
+        "toolbar.eraser": "橡皮擦",
+        "toolbar.undo": "上一步",
+        "toolbar.redo": "下一步",
+        "toolbar.end_show": "結束播放",
+    },
+    "ja-JP": {
+        "status.media_length": "メディア長さ",
+        "overlay.title": "オーバーレイウィンドウ",
+        "toolbar.select": "選択",
+        "toolbar.pen": "ペン",
+        "toolbar.eraser": "消しゴム",
+        "toolbar.undo": "戻る",
+        "toolbar.redo": "進む",
+        "toolbar.end_show": "スライド終了",
+    },
+    "en-US": {
+        "status.media_length": "Media duration",
+        "overlay.title": "Overlay window",
+        "toolbar.select": "Select",
+        "toolbar.pen": "Pen",
+        "toolbar.eraser": "Eraser",
+        "toolbar.undo": "Undo",
+        "toolbar.redo": "Redo",
+        "toolbar.end_show": "End show",
+    },
+}
+
+
+def _t(key: str) -> str:
+    lang = LANGUAGE
+    table = _TRANSLATIONS.get(lang) or _TRANSLATIONS["zh-CN"]
+    if key in table:
+        return table[key]
+    default = _TRANSLATIONS["zh-CN"]
+    return default.get(key, key)
 
 
 class StatusBarWidget(QFrame):
@@ -63,7 +129,7 @@ class StatusBarWidget(QFrame):
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setSpacing(6)
         self.progress_value = BodyLabel("", self.center_widget)
-        self.progress_caption = BodyLabel("媒体时长", self.center_widget)
+        self.progress_caption = BodyLabel(_t("status.media_length"), self.center_widget)
         self.progress_caption.hide()
         self.progress_value.hide()
         center_layout.addWidget(self.progress_value)
@@ -254,70 +320,145 @@ class PenColorPopup(QFrame):
         self.color_selected.emit(r, g, b)
         self.close()
 
-class CustomToolButton(QPushButton):
-    def __init__(self, icon_name, tooltip, parent=None, is_exit=False, tool_name=None):
+class CustomToolButton(QFrame):
+    clicked = Signal()
+
+    def __init__(self, icon_name, tooltip, parent=None, is_exit=False, tool_name=None, text=""):
         super().__init__(parent)
         self.is_exit = is_exit
         self.tool_name = tool_name
         self.icon_name = icon_name
-        self.setFixedSize(33, 33)
-        self.setToolTip(tooltip)
+        self.text = text
+        self.is_active = False
+        
         self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(tooltip)
+        
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(4, 4, 4, 4)
+        self.layout.setSpacing(2)
+        self.layout.setAlignment(Qt.AlignCenter)
+        
+        self.icon_label = QLabel(self)
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.icon_label)
+        
+        self.text_label = QLabel(text, self)
+        self.text_label.setAlignment(Qt.AlignCenter)
+        self.text_label.setStyleSheet("""
+            QLabel {
+                font-size: 11px;
+                font-family: 'MiSans', 'HarmonyOS Sans SC', 'Microsoft YaHei';
+                color: rgba(255, 255, 255, 0.9);
+                background: transparent;
+            }
+        """)
+        self.text_label.setVisible(bool(text) and cfg.showToolbarText.value)
+        self.layout.addWidget(self.text_label)
+        
+        self.update_size()
         self.update_style(False)
-        self.set_icon_color(False) # Default to dark mode (white icons)
+        self.set_icon_color(False)
+
+    def update_size(self):
+        show_text = cfg.showToolbarText.value and bool(self.text)
+        if show_text:
+            # Oval button (Capsule)
+            # We want it to be a bit wider for text but not too tall
+            self.setFixedSize(62, 38)
+            self.icon_size = 14
+        else:
+            # Circular button
+            self.setFixedSize(34, 34)
+            self.icon_size = 18
+        
+        # Ensure icon is updated
+        self.set_icon_color(False)
 
     def set_icon_color(self, is_light):
         icon_path = os.path.join(ICON_DIR, self.icon_name)
         if not os.path.exists(icon_path):
             return
             
-        color = QColor(25, 25, 25) if is_light else QColor(255, 255, 255)
-        if self.is_exit:
-            color = QColor(255, 255, 255)
-            
+        color = QColor(255, 255, 255)
         renderer = QSvgRenderer(icon_path)
-        pixmap = QPixmap(24, 24)
+        if not renderer.isValid():
+            return
+            
+        # Proportional scaling
+        s = self.icon_size
+        device_size = s * 2
+        pixmap = QPixmap(device_size, device_size)
         pixmap.fill(Qt.transparent)
         
         painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        
         renderer.render(painter)
+        
         painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
         painter.fillRect(pixmap.rect(), color)
         painter.end()
         
-        self.setIcon(QIcon(pixmap))
-        self.setIconSize(QSize(18, 18))
+        scaled_pixmap = pixmap.scaled(s, s, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.icon_label.setPixmap(scaled_pixmap)
+        self.icon_label.setFixedSize(s, s)
 
-    def update_style(self, is_active, is_light=True, use_indicator=False):
-        accent = themeColor()
-        r = accent.red()
-        g = accent.green()
-        b = accent.blue()
+    def update_style(self, is_active, is_light=False, use_indicator=False):
+        self.is_active = is_active
+        show_text = cfg.showToolbarText.value and bool(self.text)
         
-        if self.is_exit:
-            bg = "rgba(255, 69, 58, 220)"
-            hover_bg = "rgba(255, 69, 58, 255)"
-        elif use_indicator:
-            bg = "transparent"
-            hover_bg = "rgba(0, 0, 0, 0.05)" if is_light else "rgba(255, 255, 255, 0.05)"
-        elif is_active:
-            bg = f"rgba({r}, {g}, {b}, 0.22)"
-            hover_bg = f"rgba({r}, {g}, {b}, 0.32)"
+        if is_active:
+            bg = "rgba(255, 255, 255, 0.15)"
+            hover_bg = "rgba(255, 255, 255, 0.2)"
+            fg_alpha = 1.0
+        elif self.is_exit:
+            bg = "rgba(255, 69, 58, 0.2)" # Apple Red
+            hover_bg = "rgba(255, 69, 58, 0.35)"
+            fg_alpha = 1.0
         else:
             bg = "transparent"
-            hover_bg = "rgba(0, 0, 0, 0.06)" if is_light else "rgba(255, 255, 255, 0.06)"
+            hover_bg = "rgba(255, 255, 255, 0.08)"
+            fg_alpha = 0.8
         
         radius = self.height() // 2
+            
         self.setStyleSheet(f"""
-            QPushButton {{
+            CustomToolButton {{
                 background-color: {bg};
                 border-radius: {radius}px;
                 border: none;
             }}
-            QPushButton:hover {{
+            CustomToolButton:hover {{
                 background-color: {hover_bg};
             }}
         """)
+        
+        # Update text style
+        self.text_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: 8.5px;
+                font-weight: 400;
+                font-family: 'MiSans', 'SF Pro Text', 'HarmonyOS Sans SC', 'Microsoft YaHei';
+                color: rgba(255, 255, 255, {fg_alpha});
+                background: transparent;
+                margin-top: -1px;
+            }}
+        """)
+        self.text_label.setVisible(show_text)
+        
+        if show_text:
+            self.layout.setContentsMargins(0, 4, 0, 4)
+            self.layout.setSpacing(1)
+        else:
+            self.layout.setContentsMargins(0, 0, 0, 0)
+            self.layout.setSpacing(0)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
 class SlidePreviewPopup(FluentWidget):
     def __init__(self, parent=None, monitor=None, is_light=False):
@@ -488,7 +629,7 @@ class OverlayWindow(QWidget):
         # Add this attribute to fix UpdateLayeredWindowIndirect error on some systems
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WA_PaintOnScreen, False)
-        self.setWindowTitle("顶层效果窗口")
+        self.setWindowTitle(_t("overlay.title"))
         self.status_bar = None
         self.plugins = []
         self.monitor = None
@@ -573,7 +714,7 @@ class OverlayWindow(QWidget):
                 print(f"Error loading plugin {entry}: {e}")
 
     def init_ui(self):
-        self.toolbar_height = 45
+        self.toolbar_height = 45 # Default/minimum height
         has_status_plugin = any(
             hasattr(p, "manifest")
             and isinstance(p.manifest, dict)
@@ -586,7 +727,7 @@ class OverlayWindow(QWidget):
             self.status_bar.show()
         cfg.showStatusBar.valueChanged.connect(self._on_status_bar_visibility_changed)
         
-        self.toolbar = ToolbarWidget(self, self.plugins, height=self.toolbar_height) 
+        self.toolbar = ToolbarWidget(self, self.plugins) 
         self.toolbar.prev_clicked.connect(self.request_prev.emit)
         self.toolbar.next_clicked.connect(self.request_next.emit)
         self.toolbar.end_clicked.connect(self.request_end.emit)
@@ -616,6 +757,7 @@ class OverlayWindow(QWidget):
         
         self._update_theme_from_cfg()
         cfg.themeMode.valueChanged.connect(self._update_theme_from_cfg)
+        cfg.showToolbarText.valueChanged.connect(self.update_layout)
 
     def _update_theme_from_cfg(self):
         theme = cfg.themeMode.value
@@ -659,31 +801,35 @@ class OverlayWindow(QWidget):
                 print(f"Error terminating plugin {plugin.get_name()}: {e}")
 
     def update_layout(self):
+        # Prevent crash during initialization
+        if not hasattr(self, "toolbar") or self.toolbar is None:
+            return
+        if not hasattr(self, "left_flipper") or not hasattr(self, "right_flipper"):
+            return
+            
         w = self.width()
         h = self.height()
-        margin = 20
-        top_offset = 0
-        if self.status_bar and self.status_bar.isVisible():
-            self.status_bar.setFixedWidth(w)
-            self.status_bar.move(0, 0)
-            top_offset = self.status_bar.height() + 6
+        margin = 16
         
         if w <= 100 or h <= 100:
             return
 
-        # Ensure the widgets have correct sizes before moving
-        self.toolbar.setFixedSize(self.toolbar.sizeHint().width(), self.toolbar_height)
-        self.left_flipper.setFixedSize(self.left_flipper.sizeHint().width(), self.toolbar_height)
-        self.right_flipper.setFixedSize(self.right_flipper.sizeHint().width(), self.toolbar_height)
+        # Let the toolbar determine its own ideal size based on content
+        self.toolbar.adjustSize()
+        tb_size = self.toolbar.size()
+        tb_w = tb_size.width()
+        tb_h = tb_size.height()
+        
+        # Flipper height matches toolbar height for consistency
+        flipper_w = 140
+        self.left_flipper.setFixedSize(flipper_w, tb_h)
+        self.right_flipper.setFixedSize(flipper_w, tb_h)
 
-        y_pos = h - self.toolbar_height - 30 
+        y_pos = h - tb_h - 14 
         
-        tb_w = self.toolbar.width()
         self.toolbar.move((w - tb_w) // 2, y_pos)
-        
         self.left_flipper.move(margin, y_pos)
-        
-        self.right_flipper.move(w - self.right_flipper.width() - margin, y_pos)
+        self.right_flipper.move(w - flipper_w - margin, y_pos)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -707,70 +853,71 @@ class ToolbarWidget(QFrame):
     eraser_clicked = Signal()
     pen_color_changed = Signal(int, int, int)
 
-    def __init__(self, parent=None, plugins=[], height=45):
+    def __init__(self, parent=None, plugins=[], height=64):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.plugins = plugins
-        self.h_val = height
         self.current_tool = "select"
         self.pen_popup = None
-        self._is_light = True
+        self._is_light = False
         
-        # Indicator for tool switching
         self.indicator = QFrame(self)
         self.indicator.setObjectName("Indicator")
-        self.setFixedHeight(self.h_val)
+        self.indicator.hide()
+        
+        self.init_ui()
+        self.update_layout_style()
+        
+        cfg.showToolbarText.valueChanged.connect(self.update_layout_style)
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(20)
         shadow.setColor(QColor(0, 0, 0, 80))
         shadow.setOffset(0, 4)
         self.setGraphicsEffect(shadow)
-        self.init_ui()
-        self.update_style()
 
-    def update_style(self, is_light=True):
-        self._is_light = is_light
-        accent = themeColor()
-        r, g, b = accent.red(), accent.green(), accent.blue()
+    def sizeHint(self):
+        return self.layout.sizeHint()
+
+    def update_layout_style(self):
+        show_text = cfg.showToolbarText.value
         
-        if is_light:
-            bg = "rgba(255, 255, 255, 0.85)"
-            fg = "#191919"
-            border = "rgba(0, 0, 0, 0.08)"
-            line_color = "rgba(0, 0, 0, 0.1)"
-            indicator_bg = f"rgba({r}, {g}, {b}, 0.15)"
-        else:
-            bg = "rgba(32, 32, 32, 0.85)"
-            fg = "#FFFFFF"
-            border = "rgba(255, 255, 255, 0.08)"
-            line_color = "rgba(255, 255, 255, 0.14)"
-            indicator_bg = f"rgba({r}, {g}, {b}, 0.25)"
+        # Apple Style: Semi-transparent dark background with glass effect
+        bg = "rgba(28, 28, 30, 0.78)" 
+        border = "rgba(255, 255, 255, 0.12)"
+        line_color = "rgba(255, 255, 255, 0.15)"
 
         self.setStyleSheet(f"""
             ToolbarWidget {{
                 background-color: {bg};
-                border-radius: {self.h_val // 2}px;
-                border: 1px solid {border};
-            }}
-            #Indicator {{
-                background-color: {indicator_bg};
-                border-radius: 22px;
-            }}
-            QLabel {{
-                color: {fg};
-                font-family: 'MiSans VF', 'MiSans', 'Segoe UI';
-                font-weight: 500;
+                border: 0.5px solid {border};
             }}
         """)
         
+        # Update children
         for line in self.findChildren(QFrame):
             if line.frameShape() == QFrame.VLine:
-                line.setStyleSheet(f"color: {line_color};")
+                line.setFixedWidth(1)
+                line.setStyleSheet(f"background-color: {line_color}; border: none; margin: 10px 0;")
                 
         for btn in self.findChildren(CustomToolButton):
-            btn.set_icon_color(is_light)
-            is_tool = btn.tool_name in ["select", "pen", "eraser"]
-            btn.update_style(btn.tool_name == self.current_tool, is_light, use_indicator=is_tool)
+            btn.update_size()
+            btn.update_style(btn.tool_name == self.current_tool, False)
+        
+        # Force layout recalculation and update radius
+        self.layout.activate()
+        hint = self.layout.sizeHint()
+        radius = hint.height() // 2
+        
+        self.setStyleSheet(self.styleSheet() + f"\nToolbarWidget {{ border-radius: {radius}px; }}")
+        
+        # Notify parent to update position
+        p = self.parent()
+        if p and hasattr(p, "update_layout"):
+            p.update_layout()
+
+    def update_style(self, is_light=False):
+        # Compatibility with old calls
+        self.update_layout_style()
 
     def _on_undo_redo_visibility_changed(self, visible: bool):
         self.btn_undo.setVisible(visible)
@@ -779,13 +926,7 @@ class ToolbarWidget(QFrame):
         QTimer.singleShot(10, self._update_indicator_now)
 
     def _update_indicator_now(self):
-        target_btn = None
-        if self.current_tool == "select": target_btn = self.btn_select
-        elif self.current_tool == "pen": target_btn = self.btn_pen
-        elif self.current_tool == "eraser": target_btn = self.btn_eraser
-        
-        if target_btn:
-            self.indicator.setGeometry(target_btn.geometry())
+        pass # Indicator is hidden in new design
 
     def _ensure_pen_popup(self):
         if self.pen_popup is None:
@@ -797,7 +938,7 @@ class ToolbarWidget(QFrame):
             return
         self.pen_popup.adjustSize()
         btn_center = self.btn_pen.mapToGlobal(self.btn_pen.rect().center())
-        top_left = self.window().mapToGlobal(self.window().rect().topLeft())
+        # Use parent window to position popup
         x = btn_center.x() - self.pen_popup.width() // 2
         y = btn_center.y() - self.btn_pen.height() // 2 - self.pen_popup.height() - 12
         self.pen_popup.move(x, y)
@@ -823,44 +964,29 @@ class ToolbarWidget(QFrame):
         old_tool = self.current_tool
         self.current_tool = tool_name
         
-        target_btn = None
-        if tool_name == "select": target_btn = self.btn_select
-        elif tool_name == "pen": target_btn = self.btn_pen
-        elif tool_name == "eraser": target_btn = self.btn_eraser
-        
-        if target_btn:
-            if not self.indicator.isVisible():
-                self.indicator.show()
-            self.indicator.setGeometry(target_btn.geometry())
-
         for btn in [self.btn_select, self.btn_pen, self.btn_eraser]:
             if isinstance(btn, CustomToolButton):
                 btn.update_style(btn.tool_name == self.current_tool, self._is_light, use_indicator=True)
         
         if tool_name != "pen" and self.pen_popup and self.pen_popup.isVisible():
             self.pen_popup.hide()
-        if hasattr(self, "color_palette"):
-            self.color_palette.setVisible(tool_name == "pen")
         if signal:
             signal.emit()
-        
-        # parent = self.parent()
-        # if parent is not None and hasattr(parent, "update_layout"):
-        #     parent.update_layout()
 
     def init_ui(self):
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(9, 0, 9, 0)
-        layout.setSpacing(4)
-        layout.setAlignment(Qt.AlignCenter)
+        self.layout = QHBoxLayout(self)
+        self.layout.setContentsMargins(5, 5, 5, 5) 
+        self.layout.setSpacing(4) 
+        self.layout.setSizeConstraint(QHBoxLayout.SetFixedSize)
+        self.layout.setAlignment(Qt.AlignCenter)
 
-        self.btn_select = CustomToolButton("Mouse.svg", "Select", self, tool_name="select")
+        self.btn_select = CustomToolButton("Mouse.svg", _t("toolbar.select"), self, tool_name="select", text=_t("toolbar.select"))
         self.btn_select.clicked.connect(lambda: self._on_tool_changed("select", self.select_clicked))
-        layout.addWidget(self.btn_select)
+        self.layout.addWidget(self.btn_select)
 
-        self.btn_pen = CustomToolButton("Pen.svg", "Pen", self, tool_name="pen")
+        self.btn_pen = CustomToolButton("Pen.svg", _t("toolbar.pen"), self, tool_name="pen", text=_t("toolbar.pen"))
         self.btn_pen.clicked.connect(self._on_pen_button_clicked)
-        layout.addWidget(self.btn_pen)
+        self.layout.addWidget(self.btn_pen)
 
         self._pen_colors = [
             (255, 255, 255),
@@ -870,28 +996,29 @@ class ToolbarWidget(QFrame):
             (255, 255, 0),
         ]
 
-        self.btn_eraser = CustomToolButton("Eraser.svg", "Eraser", self, tool_name="eraser")
+        self.btn_eraser = CustomToolButton("Eraser.svg", _t("toolbar.eraser"), self, tool_name="eraser", text=_t("toolbar.eraser"))
         self.btn_eraser.clicked.connect(lambda: self._on_tool_changed("eraser", self.eraser_clicked))
-        layout.addWidget(self.btn_eraser)
+        self.layout.addWidget(self.btn_eraser)
 
         self.line1 = QFrame()
         self.line1.setFrameShape(QFrame.VLine)
-        self.line1.setFixedHeight(18)
-        layout.addWidget(self.line1)
+        self.line1.setFixedHeight(24)
+        self.layout.addWidget(self.line1)
 
-        self.btn_undo = CustomToolButton("Previous.svg", "Undo", self)
+        self.btn_undo = CustomToolButton("Previous.svg", _t("toolbar.undo"), self, text=_t("toolbar.undo"))
         self.btn_undo.clicked.connect(self.prev_clicked.emit)
-        layout.addWidget(self.btn_undo)
+        self.layout.addWidget(self.btn_undo)
 
-        self.btn_redo = CustomToolButton("Next.svg", "Redo", self)
+        self.btn_redo = CustomToolButton("Next.svg", _t("toolbar.redo"), self, text=_t("toolbar.redo"))
         self.btn_redo.clicked.connect(self.next_clicked.emit)
-        layout.addWidget(self.btn_redo)
+        self.layout.addWidget(self.btn_redo)
 
         self.btn_undo.setVisible(cfg.showUndoRedo.value)
         self.btn_redo.setVisible(cfg.showUndoRedo.value)
         self.line1.setVisible(cfg.showUndoRedo.value)
         cfg.showUndoRedo.valueChanged.connect(self._on_undo_redo_visibility_changed)
 
+        # Plugins or other buttons
         toolbar_plugins = []
         for plugin in self.plugins:
             plugin_type = "toolbar"
@@ -899,24 +1026,25 @@ class ToolbarWidget(QFrame):
                 plugin_type = plugin.get_type()
             if plugin_type == "toolbar":
                 toolbar_plugins.append(plugin)
+        
         if toolbar_plugins:
             self.line2 = QFrame()
             self.line2.setFrameShape(QFrame.VLine)
-            self.line2.setFixedHeight(18)
-            layout.addWidget(self.line2)
+            self.line2.setFixedHeight(24)
+            self.layout.addWidget(self.line2)
             for plugin in toolbar_plugins:
-                btn = CustomToolButton(plugin.get_icon() or "More.svg", plugin.get_name(), self)
+                btn = CustomToolButton(plugin.get_icon() or "More.svg", plugin.get_name(), self, text=plugin.get_name())
                 btn.clicked.connect(plugin.execute)
-                layout.addWidget(btn)
+                self.layout.addWidget(btn)
 
         self.line3 = QFrame()
         self.line3.setFrameShape(QFrame.VLine)
-        self.line3.setFixedHeight(18)
-        layout.addWidget(self.line3)
+        self.line3.setFixedHeight(24)
+        self.layout.addWidget(self.line3)
 
-        self.btn_end = CustomToolButton("Minimaze.svg", "End Show", self, is_exit=True)
+        self.btn_end = CustomToolButton("Minimaze.svg", _t("toolbar.end_show"), self, is_exit=True, text=_t("toolbar.end_show"))
         self.btn_end.clicked.connect(self.end_clicked.emit)
-        layout.addWidget(self.btn_end)
+        self.layout.addWidget(self.btn_end)
         
         # Ensure indicator is at the correct position initially
         QTimer.singleShot(0, self._update_indicator_now)
@@ -925,19 +1053,66 @@ class ToolbarWidget(QFrame):
         super().showEvent(event)
         QTimer.singleShot(0, self._update_indicator_now)
 
+class PageFlipButton(QFrame):
+    btn_clicked = Signal()
+
+    def __init__(self, icon_name, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(32, 32)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: transparent;
+                border-radius: 16px;
+            }
+            QFrame:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+        """)
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.setAlignment(Qt.AlignCenter)
+        
+        self.icon_label = QLabel(self)
+        self.icon_label.setFixedSize(16, 16)
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        
+        icon_path = os.path.join(ICON_DIR, icon_name)
+        if os.path.exists(icon_path):
+            renderer = QSvgRenderer(icon_path)
+            if renderer.isValid():
+                pixmap = QPixmap(32, 32)
+                pixmap.fill(Qt.transparent)
+                painter = QPainter(pixmap)
+                painter.setRenderHint(QPainter.Antialiasing)
+                renderer.render(painter)
+                painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+                painter.fillRect(pixmap.rect(), QColor(255, 255, 255))
+                painter.end()
+                self.icon_label.setPixmap(pixmap.scaled(16, 16, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        layout.addWidget(self.icon_label)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.btn_clicked.emit()
+        super().mousePressEvent(event)
+
 class PageFlipWidget(QFrame):
     clicked_prev = Signal()
     clicked_next = Signal()
     page_clicked = Signal(QPoint)
 
-    def __init__(self, side="Left", parent=None, height=45):
+    def __init__(self, side="Left", parent=None, height=42):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.side = side
         self.h_val = height
         
         self.update_style()
-        self.setFixedSize(180, self.h_val)
+        self.setFixedSize(140, self.h_val)
         
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(16)
@@ -946,57 +1121,47 @@ class PageFlipWidget(QFrame):
         self.setGraphicsEffect(shadow)
         
         self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(10, 0, 10, 0)
-        self.layout.setSpacing(8)
+        self.layout.setContentsMargins(5, 5, 5, 5)
+        self.layout.setSpacing(4)
         self.layout.setAlignment(Qt.AlignCenter)
         
-        self.btn_prev = self._create_icon_btn("Previous.svg")
-        self.btn_prev.clicked.connect(self.clicked_prev.emit)
+        self.btn_prev = PageFlipButton("Previous.svg", self)
+        self.btn_prev.btn_clicked.connect(self.clicked_prev.emit)
         
-        self.lbl_page = ClickableLabel("0/0")
-        self.lbl_page.setFixedWidth(64)
+        self.lbl_page = ClickableLabel("0/0", self)
+        self.lbl_page.setFixedWidth(52)
         self.lbl_page.setAlignment(Qt.AlignCenter)
-        self.lbl_page.clicked.connect(self.page_clicked)
+        self.lbl_page.clicked.connect(self.page_clicked.emit)
         
-        self.btn_next = self._create_icon_btn("Next.svg")
-        self.btn_next.clicked.connect(self.clicked_next.emit)
+        self.btn_next = PageFlipButton("Next.svg", self)
+        self.btn_next.btn_clicked.connect(self.clicked_next.emit)
         
         self.layout.addWidget(self.btn_prev)
         self.layout.addWidget(self.lbl_page)
         self.layout.addWidget(self.btn_next)
 
-    def update_style(self, is_light=True):
-        if is_light:
-            bg = "rgba(255, 255, 255, 0.85)"
-            fg = "#191919"
-            border = "rgba(0, 0, 0, 0.08)"
-        else:
-            bg = "rgba(32, 32, 32, 0.85)"
-            fg = "#FFFFFF"
-            border = "rgba(255, 255, 255, 0.08)"
+    def set_page_info(self, current, total):
+        self.lbl_page.setText(f"{current}/{total}")
 
+    def update_style(self, is_light=False):
+        # Apple Style
+        bg = "rgba(28, 28, 30, 0.78)"
+        border = "rgba(255, 255, 255, 0.12)"
+        fg = "white"
+        
+        radius = self.h_val // 2
+        
         self.setStyleSheet(f"""
             PageFlipWidget {{
-                background-color: {bg}; 
-                border-radius: {self.h_val // 2}px;
-                border: 1px solid {border};
+                background-color: {bg};
+                border-radius: {radius}px;
+                border: 0.5px solid {border};
             }}
             QLabel {{
                 color: {fg};
-                font-weight: 700;
-                font-size: 14px;
-                font-family: 'MiSans VF', 'MiSans', 'Segoe UI', sans-serif;
+                font-family: 'MiSans', 'SF Pro Text', 'HarmonyOS Sans SC', 'Microsoft YaHei';
+                font-size: 11.5px;
+                font-weight: 400;
+                background: transparent;
             }}
         """)
-        for btn in self.findChildren(CustomToolButton):
-            btn.set_icon_color(is_light)
-            btn.update_style(False, is_light)
-
-    def _create_icon_btn(self, icon_name):
-        btn = CustomToolButton(icon_name, "", self)
-        btn.setIconSize(QSize(20, 20))
-        btn.setFixedSize(36, 36)
-        return btn
-
-    def set_page_info(self, current, total):
-        self.lbl_page.setText(f"{current}/{total}")

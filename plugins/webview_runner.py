@@ -95,7 +95,6 @@ class Api:
 
     def create_dialog(self):
         msg = "曾许下心愿 等待你的出现\n褪色的秋千 有本书会纪念\n我循着时间 捡起梦的照片\n童话还没有兑现 却需要说再见"
-        # We launch a separate process for the dialog to keep it consistent with other plugins
         base_dir = os.path.dirname(os.path.abspath(__file__))
         html_path = os.path.join(os.path.dirname(base_dir), "ppt_assistant", "ui", "dialog.html")
         
@@ -109,10 +108,11 @@ class Api:
             accent = "#3275F5"
 
         dialog_data = {
-            "title": "测试对话框",
+            "code": "test_dialog",
+            "title": "",
             "text": msg,
-            "confirmText": "我知道了",
-            "cancelText": "关闭",
+            "confirmText": "",
+            "cancelText": "",
             "theme": theme_lower,
             "accentColor": accent
         }

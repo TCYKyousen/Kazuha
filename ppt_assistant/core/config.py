@@ -13,6 +13,7 @@ from qfluentwidgets import (
 )
 from qfluentwidgets.common.config import EnumSerializer
 import os
+import json
 
 
 class Config(QConfig):
@@ -29,6 +30,7 @@ class Config(QConfig):
     autoShowOverlay = ConfigItem("General", "AutoShowOverlay", True, BoolValidator())
 
     showUndoRedo = ConfigItem("Toolbar", "ShowUndoRedo", True, BoolValidator())
+    showToolbarText = ConfigItem("Toolbar", "ShowToolbarText", False, BoolValidator())
 
     showStatusBar = ConfigItem("Overlay", "ShowStatusBar", True, BoolValidator())
 
@@ -60,7 +62,40 @@ _apply_theme_and_color(cfg.themeMode.value)
 
 
 def _save_cfg():
+    old_data = {}
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                old_data = json.load(f)
+        except Exception:
+            old_data = {}
+
     qconfig.save()
+
+    new_data = {}
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                new_data = json.load(f)
+        except Exception:
+            new_data = {}
+
+    merged = old_data if isinstance(old_data, dict) else {}
+    if isinstance(new_data, dict):
+        for cat, cat_val in new_data.items():
+            if not isinstance(cat_val, dict):
+                merged[cat] = cat_val
+                continue
+            if cat not in merged or not isinstance(merged[cat], dict):
+                merged[cat] = {}
+            for key, value in cat_val.items():
+                merged[cat][key] = value
+
+    try:
+        with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(merged, f, indent=4, ensure_ascii=False)
+    except Exception:
+        pass
 
 
 def _on_theme_changed(theme):

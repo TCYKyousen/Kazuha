@@ -4,7 +4,8 @@
     },
     "General": {
         "AutoShowOverlay": true,
-        "RunAtStartup": false
+        "RunAtStartup": false,
+        "Language": "zh-CN"
     },
     "QFluentWidgets": {
         "FontFamilies": [
@@ -18,7 +19,8 @@
         "ShowStatusBar": true
     },
     "Toolbar": {
-        "ShowUndoRedo": false
+        "ShowUndoRedo": false,
+        "ShowToolbarText": false
     },
     "Appearance": {
         "ThemeMode": "Auto"

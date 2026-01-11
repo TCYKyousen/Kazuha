@@ -576,20 +576,20 @@
 <body>
   <div class="container" ondblclick="handleDblClick(event)">
     <div class="sidebar">
-      <div class="nav-item active" data-target="view-stopwatch" data-title="秒表">
+      <div class="nav-item active" data-target="view-stopwatch" data-title-key="title.stopwatch">
         <div class="nav-icon icon-stopwatch"></div>
-        <span>秒表</span>
+        <span data-i18n="nav.stopwatch">秒表</span>
       </div>
-      <div class="nav-item" data-target="view-timer" data-title="计时">
+      <div class="nav-item" data-target="view-timer" data-title-key="title.timer">
         <div class="nav-icon icon-timer"></div>
-        <span>计时</span>
+        <span data-i18n="nav.timer">计时</span>
       </div>
     </div>
 
     <div class="content-area">
       <main class="main-container">
         <header class="header-inline">
-          <div class="page-title" id="pageTitle">秒表</div>
+          <div class="page-title" id="pageTitle" data-i18n="title.stopwatch">秒表</div>
         </header>
 
         <section id="view-stopwatch" class="view-section active">
@@ -600,17 +600,17 @@
           <div class="wheel-picker-container">
             <div class="wheel-col-wrapper">
               <div class="wheel-col" id="wheel-hour"></div>
-              <div class="wheel-label">时</div>
+              <div class="wheel-label" data-i18n="timer.hour">时</div>
             </div>
             <div class="wheel-sep">:</div>
             <div class="wheel-col-wrapper">
               <div class="wheel-col" id="wheel-minute"></div>
-              <div class="wheel-label">分</div>
+              <div class="wheel-label" data-i18n="timer.minute">分</div>
             </div>
             <div class="wheel-sep">:</div>
             <div class="wheel-col-wrapper">
               <div class="wheel-col" id="wheel-second"></div>
-              <div class="wheel-label">秒</div>
+              <div class="wheel-label" data-i18n="timer.second">秒</div>
             </div>
           </div>
 
@@ -622,13 +622,13 @@
               </svg>
               <div class="countdown-text">
                 <div class="time-left" id="timeLeftDisplay">00:00:00</div>
-                <div class="total-time" id="totalTimeDisplay">共0秒</div>
+                <div class="total-time" id="totalTimeDisplay"></div>
               </div>
             </div>
           </div>
 
           <div class="bell-container" id="bellUI">
-            <div class="time-up-text">时间到</div>
+            <div class="time-up-text"></div>
           </div>
         </section>
 
@@ -640,18 +640,133 @@
       </main>
     </div>
   </div> <!-- end of container -->
-    <div class="dialog-overlay" id="exitDialog">
+  <div class="dialog-overlay" id="exitDialog">
     <div class="dialog-card">
-      <div class="dialog-title">确认退出</div>
-      <div class="dialog-desc">计时器正在运行，退出将清空当前计时进度。确定要退出吗？</div>
+      <div class="dialog-title"></div>
+      <div class="dialog-desc"></div>
       <div class="dialog-buttons">
-        <button class="dialog-btn cancel" onclick="hideExitDialog()">取消</button>
-        <button class="dialog-btn confirm" onclick="winClose()">确定</button>
+        <button class="dialog-btn cancel" onclick="hideExitDialog()"></button>
+        <button class="dialog-btn confirm" onclick="winClose()"></button>
       </div>
     </div>
   </div>
 
   <script>
+    const I18N = {
+      "zh-CN": {
+        "nav.stopwatch": "秒表",
+        "nav.timer": "计时",
+        "title.stopwatch": "秒表",
+        "title.timer": "计时",
+        "timer.hour": "时",
+        "timer.minute": "分",
+        "timer.second": "秒",
+        "timer.totalSeconds": "共{n}秒",
+        "bell.timeUp": "时间到",
+        "dialog.exit.title": "确认退出",
+        "dialog.exit.desc": "计时器正在运行，退出将清空当前计时进度。确定要退出吗？",
+        "dialog.cancel": "取消",
+        "dialog.confirm": "确定"
+      },
+      "zh-TW": {
+        "nav.stopwatch": "秒錶",
+        "nav.timer": "計時",
+        "title.stopwatch": "秒錶",
+        "title.timer": "計時",
+        "timer.hour": "時",
+        "timer.minute": "分",
+        "timer.second": "秒",
+        "timer.totalSeconds": "共{n}秒",
+        "bell.timeUp": "時間到",
+        "dialog.exit.title": "確認退出",
+        "dialog.exit.desc": "計時器正在運行，退出將清空當前計時進度。確定要退出嗎？",
+        "dialog.cancel": "取消",
+        "dialog.confirm": "確定"
+      },
+      "ja-JP": {
+        "nav.stopwatch": "ストップウォッチ",
+        "nav.timer": "タイマー",
+        "title.stopwatch": "ストップウォッチ",
+        "title.timer": "タイマー",
+        "timer.hour": "時",
+        "timer.minute": "分",
+        "timer.second": "秒",
+        "timer.totalSeconds": "合計 {n} 秒",
+        "bell.timeUp": "時間になりました",
+        "dialog.exit.title": "終了の確認",
+        "dialog.exit.desc": "タイマーが実行中です。終了すると現在の計時はリセットされます。終了してもよろしいですか？",
+        "dialog.cancel": "キャンセル",
+        "dialog.confirm": "OK"
+      },
+      "en-US": {
+        "nav.stopwatch": "Stopwatch",
+        "nav.timer": "Timer",
+        "title.stopwatch": "Stopwatch",
+        "title.timer": "Timer",
+        "timer.hour": "H",
+        "timer.minute": "M",
+        "timer.second": "S",
+        "timer.totalSeconds": "Total {n} seconds",
+        "bell.timeUp": "Time is up",
+        "dialog.exit.title": "Confirm exit",
+        "dialog.exit.desc": "Timer is running. Exiting will clear the current progress. Are you sure?",
+        "dialog.cancel": "Cancel",
+        "dialog.confirm": "Confirm"
+      }
+    };
+
+    let settings = window.initialSettings || {};
+    let currentLanguage = (settings.General && settings.General.Language) || "zh-CN";
+
+    function getText(key) {
+      const langPack = I18N[currentLanguage] || I18N["zh-CN"];
+      if (langPack && key in langPack) return langPack[key];
+      const fallback = I18N["zh-CN"];
+      if (fallback && key in fallback) return fallback[key];
+      return "";
+    }
+
+    function applyLanguageFont() {
+      const isSpecial = currentLanguage === "zh-TW" || currentLanguage === "ja-JP";
+      const fontStack = isSpecial
+        ? "\"MiSans Latin\", \"Yu Gothic UI\", system-ui, sans-serif"
+        : "\"MiSans Latin\", \"Source Han Sans SC\", \"Source Han Sans CN\", \"Noto Sans CJK SC\", \"Microsoft YaHei\", system-ui, sans-serif";
+      document.documentElement.style.setProperty("--font-stack", fontStack);
+    }
+
+    function formatTotalSecondsText(totalSec) {
+      const tmpl = getText("timer.totalSeconds") || "{n}";
+      return tmpl.replace("{n}", String(totalSec));
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = currentLanguage;
+      applyLanguageFont();
+      const nodes = document.querySelectorAll("[data-i18n]");
+      nodes.forEach(node => {
+        const key = node.getAttribute("data-i18n");
+        const text = getText(key);
+        if (text) node.textContent = text;
+      });
+      const bellText = document.querySelector(".time-up-text");
+      if (bellText) bellText.textContent = getText("bell.timeUp") || bellText.textContent;
+      const exitTitleEl = document.querySelector(".dialog-title");
+      if (exitTitleEl) exitTitleEl.textContent = getText("dialog.exit.title") || exitTitleEl.textContent;
+      const exitDescEl = document.querySelector(".dialog-desc");
+      if (exitDescEl) exitDescEl.textContent = getText("dialog.exit.desc") || exitDescEl.textContent;
+      const cancelBtn = document.querySelector(".dialog-btn.cancel");
+      if (cancelBtn) cancelBtn.textContent = getText("dialog.cancel") || cancelBtn.textContent;
+      const confirmBtn = document.querySelector(".dialog-btn.confirm");
+      if (confirmBtn) confirmBtn.textContent = getText("dialog.confirm") || confirmBtn.textContent;
+      const activeNav = document.querySelector(".nav-item.active");
+      const pageTitle = document.getElementById("pageTitle");
+      if (activeNav && pageTitle) {
+        const key = activeNav.dataset.titleKey || "title.stopwatch";
+        const text = getText(key);
+        if (text) pageTitle.textContent = text;
+      }
+    }
+
     const exitDialog = document.getElementById('exitDialog');
 
     function showExitDialog() {
@@ -670,17 +785,28 @@
 
     window.addEventListener('pywebviewready', () => {
       if (typeof updateButtonState === 'function') updateButtonState();
-      if (window.pywebview && window.pywebview.api) {
-        window.pywebview.api.get_settings().then(settings => {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_settings) {
+        window.pywebview.api.get_settings().then(s => {
+          if (s && Object.keys(s).length > 0) {
+            settings = s;
+          }
+          const lang = settings.General && settings.General.Language;
+          if (lang) currentLanguage = lang;
           if (settings && settings.Appearance) {
             const themeMode = settings.Appearance.ThemeMode || 'Light';
             applyTheme(themeMode);
           } else {
             applyTheme('Light');
           }
+          applyI18n();
+        }).catch(err => {
+          console.error("Failed to get settings:", err);
+          applyTheme('Light');
+          applyI18n();
         });
       } else {
         applyTheme('Light');
+        applyI18n();
       }
     });
 
@@ -737,14 +863,12 @@
         currentMode = targetId === 'view-stopwatch' ? 'stopwatch' : 'timer';
 
         const targetSec = document.getElementById(targetId);
-        // Remove any leftover exit classes just in case
         targetSec.classList.remove('exit-left');
-
-        // Force reflow to restart animation if it was just hidden
         void targetSec.offsetWidth;
-
         targetSec.classList.add('active');
-        pageTitle.textContent = item.dataset.title;
+        const titleKey = item.dataset.titleKey || "title.stopwatch";
+        const text = getText(titleKey);
+        pageTitle.textContent = text || pageTitle.textContent;
 
         updateButtonState();
       });
@@ -910,7 +1034,7 @@
       pickerUI.style.pointerEvents = 'none';
 
       countdownUI.classList.add('active');
-      document.getElementById('totalTimeDisplay').textContent = `共${totalSec}秒`;
+      document.getElementById('totalTimeDisplay').textContent = formatTotalSecondsText(totalSec);
 
       updateCountdownUI();
 

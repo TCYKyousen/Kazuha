@@ -444,6 +444,34 @@
       fill: rgba(255, 255, 255, 0.05);
       stroke: rgba(255, 255, 255, 0.2);
     }
+
+    .language-warning {
+      display: none;
+      margin-top: 8px;
+      padding: 10px 14px;
+      background: rgba(255, 185, 0, 0.1);
+      border: 1px solid rgba(255, 185, 0, 0.15);
+      border-radius: 8px;
+      color: #D29200;
+      font-size: 12.5px;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    [data-theme="dark"] .language-warning {
+      background: rgba(255, 185, 0, 0.05);
+      border-color: rgba(255, 185, 0, 0.1);
+      color: #FFB900;
+    }
+
+    .warning-icon {
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      fill: currentColor;
+    }
   </style>
 </head>
 
@@ -456,14 +484,14 @@
           <path
             d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
         </svg>
-        <span>通用</span>
+        <span data-i18n="nav.general">通用</span>
       </div>
       <div class="sidebar-item" data-section="interaction">
         <svg class="sidebar-icon" viewBox="0 0 24 24">
           <path
             d="M18 8a3 3 0 013 3 3 3 0 01-3 3h-1V8h1zM14 8h-4v6h4V8zM19 19H5a2 2 0 01-2-2V7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2z" />
         </svg>
-        <span>交互</span>
+        <span data-i18n="nav.interaction">交互</span>
       </div>
       <div class="sidebar-item" data-section="about">
         <svg class="sidebar-icon" viewBox="0 0 24 24">
@@ -471,76 +499,103 @@
           <path d="M12 16v-4" />
           <path d="M12 8h.01" />
         </svg>
-        <span>关于</span>
+        <span data-i18n="nav.about">关于</span>
       </div>
       <div class="sidebar-item" data-section="debug" id="nav-debug" style="display:none;">
         <svg class="sidebar-icon" viewBox="0 0 24 24">
           <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.77 3.77z"/>
         </svg>
-        <span>调试</span>
+        <span data-i18n="nav.debug">调试</span>
       </div>
     </div>
 
     <div class="content">
-      <div class="page-title" id="section-title">通用</div>
+      <div class="page-title" id="section-title" data-i18n="section.general">通用</div>
 
       <div class="section active" id="section-general">
-        <div class="group-title">外观</div>
+        <div class="group-title" data-i18n="group.appearance">外观</div>
         <div class="settings-group">
           <div class="settings-item">
             <div class="item-info">
-              <span class="item-label">外观模式</span>
-              <span class="item-desc">调整应用程序的显示主题</span>
+              <span class="item-label" data-i18n="appearance.mode.label">外观模式</span>
+              <span class="item-desc" data-i18n="appearance.mode.desc">调整应用程序的显示主题</span>
             </div>
             <div class="theme-select">
-              <div class="theme-option" id="theme-Light" onclick="setTheme('Light')">浅色</div>
-              <div class="theme-option" id="theme-Dark" onclick="setTheme('Dark')">深色</div>
-              <div class="theme-option" id="theme-Auto" onclick="setTheme('Auto')">跟随系统</div>
+              <div class="theme-option" id="theme-Light" onclick="setTheme('Light')" data-i18n="appearance.mode.light">浅色</div>
+              <div class="theme-option" id="theme-Dark" onclick="setTheme('Dark')" data-i18n="appearance.mode.dark">深色</div>
+              <div class="theme-option" id="theme-Auto" onclick="setTheme('Auto')" data-i18n="appearance.mode.auto">跟随系统</div>
             </div>
           </div>
           
         </div>
 
-        <div class="group-title">通用</div>
+        <div class="group-title" data-i18n="group.general">通用</div>
         <div class="settings-group">
           <div class="settings-item" onclick="toggleSwitch('General', 'RunAtStartup')">
             <div class="item-info">
-              <span class="item-label">开机自启</span>
+              <span class="item-label" data-i18n="general.runAtStartup.label">开机自启</span>
             </div>
             <div class="switch" id="sw-General-RunAtStartup"></div>
           </div>
           <div class="settings-item" onclick="toggleSwitch('General', 'AutoShowOverlay')">
             <div class="item-info">
-              <span class="item-label">自动显示悬浮窗</span>
-              <span class="item-desc">检测到 PPT 放映时自动显示工具栏</span>
+              <span class="item-label" data-i18n="general.autoShowOverlay.label">自动显示悬浮窗</span>
+              <span class="item-desc" data-i18n="general.autoShowOverlay.desc">检测到 PPT 放映时自动显示工具栏</span>
             </div>
             <div class="switch" id="sw-General-AutoShowOverlay"></div>
+          </div>
+          <div class="settings-item" id="item-language" style="flex-direction: column; align-items: stretch; gap: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <div class="item-info">
+                <span class="item-label" data-i18n="general.language.label">界面语言</span>
+                <span class="item-desc" data-i18n="general.language.desc">更改语言后需重启软件才能在所有界面生效</span>
+              </div>
+              <div class="theme-select">
+                <div class="theme-option language-option" data-lang="zh-CN" onclick="setLanguage('zh-CN')" data-i18n="language.zh-CN">简体中文</div>
+                <div class="theme-option language-option" data-lang="zh-TW" onclick="setLanguage('zh-TW')" data-i18n="language.zh-TW">繁體中文</div>
+                <div class="theme-option language-option" data-lang="ja-JP" onclick="setLanguage('ja-JP')" data-i18n="language.ja-JP">日本語</div>
+                <div class="theme-option language-option" data-lang="en-US" onclick="setLanguage('en-US')" data-i18n="language.en-US">English</div>
+              </div>
+            </div>
+            <div class="language-warning" id="language-warning" style="margin-top: 12px; margin-bottom: 4px;">
+              <svg class="warning-icon" viewBox="0 0 24 24">
+                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+              </svg>
+              <span data-i18n="general.language.warning">当前选择的语言不是简体中文。为了获得最佳体验，建议使用简体中文。其他语言可能存在翻译不全或排版错位的问题。</span>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="section" id="section-interaction">
-        <div class="group-title">交互</div>
+        <div class="group-title" data-i18n="group.interaction">交互</div>
         <div class="settings-group">
           <div class="settings-item" onclick="toggleSwitch('PPT', 'AutoHandleInk')">
             <div class="item-info">
-              <span class="item-label">自动处理墨迹</span>
-              <span class="item-desc">退出放映时自动处理"是否保留墨迹"</span>
+              <span class="item-label" data-i18n="interaction.autoHandleInk.label">自动处理墨迹</span>
+              <span class="item-desc" data-i18n="interaction.autoHandleInk.desc">退出放映时自动处理"是否保留墨迹"</span>
             </div>
             <div class="switch" id="sw-PPT-AutoHandleInk"></div>
           </div>
           <div class="settings-item" onclick="toggleSwitch('Overlay', 'ShowStatusBar')">
             <div class="item-info">
-              <span class="item-label">顶部状态栏</span>
-              <span class="item-desc">在悬浮窗顶部显示时间与状态</span>
+              <span class="item-label" data-i18n="interaction.showStatusBar.label">顶部状态栏</span>
+              <span class="item-desc" data-i18n="interaction.showStatusBar.desc">在悬浮窗顶部显示时间与状态</span>
             </div>
             <div class="switch" id="sw-Overlay-ShowStatusBar"></div>
           </div>
           <div class="settings-item" onclick="toggleSwitch('Toolbar', 'ShowUndoRedo')">
             <div class="item-info">
-              <span class="item-label">显示撤销/重做</span>
+              <span class="item-label" data-i18n="interaction.showUndoRedo.label">显示撤销/重做</span>
             </div>
             <div class="switch" id="sw-Toolbar-ShowUndoRedo"></div>
+          </div>
+          <div class="settings-item" onclick="toggleSwitch('Toolbar', 'ShowToolbarText')">
+            <div class="item-info">
+              <span class="item-label" data-i18n="interaction.showToolbarText.label">工具栏文字</span>
+              <span class="item-desc" data-i18n="interaction.showToolbarText.desc">在工具栏图标下方显示功能名称</span>
+            </div>
+            <div class="switch" id="sw-Toolbar-ShowToolbarText"></div>
           </div>
         </div>
       </div>
@@ -557,7 +612,7 @@
         <div class="settings-group">
           <div class="settings-item" id="version-item">
             <div class="item-info">
-              <span class="item-label">软件版本</span>
+              <span class="item-label" data-i18n="about.version.label">软件版本</span>
               <span class="item-desc" id="app-version"></span>
             </div>
             <div class="item-state">
@@ -568,18 +623,18 @@
           </div>
           <div class="version-expander" id="version-expander">
             <div class="version-expander-inner">
-              <div class="version-expander-text">
+              <div class="version-expander-text" data-i18n="about.version.copyright">
                 copyright 2025-2026 Seirai Haraguchi / YunoFactory 丨本程序根据 GNU General Public License 3 获得许可
               </div>
               <div class="version-expander-links">
-                <a href="#" target="_blank" rel="noopener noreferrer">GitHub 仓库地址</a>
-                <a href="#" target="_blank" rel="noopener noreferrer">QQ群</a>
+                <a href="#" target="_blank" rel="noopener noreferrer" data-i18n="about.version.github">GitHub 仓库地址</a>
+                <a href="#" target="_blank" rel="noopener noreferrer" data-i18n="about.version.qq">QQ群</a>
               </div>
             </div>
           </div>
           <div class="settings-item">
             <div class="item-info">
-              <span class="item-label">检查更新</span>
+              <span class="item-label" data-i18n="about.checkUpdate.label">检查更新</span>
             </div>
             <div class="item-state">
               <svg class="chevron" viewBox="0 0 24 24">
@@ -591,12 +646,12 @@
       </div>
 
       <div class="section" id="section-debug" style="display:none;">
-        <div class="group-title">调试选项</div>
+        <div class="group-title" data-i18n="group.debugOptions">调试选项</div>
         <div class="settings-group">
           <div class="settings-item" onclick="createTestDialog()">
             <div class="item-info">
-              <span class="item-label">创建 Dialog</span>
-              <span class="item-desc">测试全新的 Dialog 设计风格</span>
+              <span class="item-label" data-i18n="debug.createDialog.label">创建 Dialog</span>
+              <span class="item-desc" data-i18n="debug.createDialog.desc">测试全新的 Dialog 设计风格</span>
             </div>
             <div class="item-state">
               <svg class="chevron" viewBox="0 0 24 24">
@@ -606,8 +661,8 @@
           </div>
           <div class="settings-item" onclick="triggerTestCrash()">
             <div class="item-info">
-              <span class="item-label" style="color: #ff4d4f;">触发测试崩溃</span>
-              <span class="item-desc">手动触发一个 RuntimeError 以测试崩溃处理器的表现</span>
+              <span class="item-label" style="color: #ff4d4f;" data-i18n="debug.triggerCrash.label">触发测试崩溃</span>
+              <span class="item-desc" data-i18n="debug.triggerCrash.desc">手动触发一个 RuntimeError 以测试崩溃处理器的表现</span>
             </div>
             <div class="item-state">
               <svg class="chevron" viewBox="0 0 24 24">
@@ -619,16 +674,245 @@
       </div> <!-- end of content -->
     </div> <!-- end of layout -->
   </body>  <script>
+    const I18N = {
+      "zh-CN": {
+        "nav.general": "通用",
+        "nav.interaction": "交互",
+        "nav.about": "关于",
+        "nav.debug": "调试",
+        "section.general": "通用",
+        "section.interaction": "交互",
+        "section.about": "关于",
+        "section.debug": "调试",
+        "group.appearance": "外观",
+        "group.general": "通用",
+        "group.interaction": "交互",
+        "group.debugOptions": "调试选项",
+        "appearance.mode.label": "外观模式",
+        "appearance.mode.desc": "调整应用程序的显示主题",
+        "appearance.mode.light": "浅色",
+        "appearance.mode.dark": "深色",
+        "appearance.mode.auto": "跟随系统",
+        "general.runAtStartup.label": "开机自启",
+        "general.autoShowOverlay.label": "自动显示悬浮窗",
+        "general.autoShowOverlay.desc": "检测到 PPT 放映时自动显示工具栏",
+        "general.language.label": "界面语言",
+        "general.language.desc": "更改语言后需重启软件才能在所有界面生效",
+        "general.language.warning": "当前选择的语言不是简体中文。为了获得最佳体验，建议使用简体中文。其他语言可能存在翻译不全或排版错位的问题。",
+        "language.zh-CN": "简体中文",
+        "language.zh-TW": "繁體中文",
+        "language.ja-JP": "日本語",
+        "language.en-US": "English",
+        "interaction.autoHandleInk.label": "自动处理墨迹",
+        "interaction.autoHandleInk.desc": "退出放映时自动处理\"是否保留墨迹\"",
+        "interaction.showStatusBar.label": "顶部状态栏",
+        "interaction.showStatusBar.desc": "在悬浮窗顶部显示时间与状态",
+        "interaction.showUndoRedo.label": "显示撤销/重做",
+        "interaction.showToolbarText.label": "工具栏文字",
+        "interaction.showToolbarText.desc": "在工具栏图标下方显示功能名称",
+        "about.version.label": "软件版本",
+        "about.version.copyright": "copyright 2025-2026 Seirai Haraguchi / YunoFactory 丨本程序根据 GNU General Public License 3 获得许可",
+        "about.version.github": "GitHub 仓库地址",
+        "about.version.qq": "QQ群",
+        "about.checkUpdate.label": "检查更新",
+        "debug.createDialog.label": "创建 Dialog",
+        "debug.createDialog.desc": "测试全新的 Dialog 设计风格",
+        "debug.triggerCrash.label": "触发测试崩溃",
+        "debug.triggerCrash.desc": "手动触发一个 RuntimeError 以测试崩溃处理器的表现"
+      },
+      "zh-TW": {
+        "nav.general": "一般",
+        "nav.interaction": "互動",
+        "nav.about": "關於",
+        "nav.debug": "偵錯",
+        "section.general": "一般",
+        "section.interaction": "互動",
+        "section.about": "關於",
+        "section.debug": "偵錯",
+        "group.appearance": "外觀",
+        "group.general": "一般",
+        "group.interaction": "互動",
+        "group.debugOptions": "偵錯選項",
+        "appearance.mode.label": "外觀模式",
+        "appearance.mode.desc": "調整應用程式的顯示主題",
+        "appearance.mode.light": "淺色",
+        "appearance.mode.dark": "深色",
+        "appearance.mode.auto": "跟隨系統",
+        "general.runAtStartup.label": "開機自啟",
+        "general.autoShowOverlay.label": "自動顯示懸浮窗",
+        "general.autoShowOverlay.desc": "偵測到 PPT 播放時自動顯示工具列",
+        "general.language.label": "介面語言",
+        "general.language.desc": "更改語言後需重新啟動才能在所有介面生效",
+        "general.language.warning": "目前選擇的語言不是簡體中文。為了獲得最佳體驗，建議使用簡體中文。其他語言可能存在翻譯不全或排版錯位的問題。",
+        "language.zh-CN": "簡體中文",
+        "language.zh-TW": "繁體中文",
+        "language.ja-JP": "日本語",
+        "language.en-US": "English",
+        "interaction.autoHandleInk.label": "自動處理墨跡",
+        "interaction.autoHandleInk.desc": "結束播放時自動處理「是否保留墨跡」",
+        "interaction.showStatusBar.label": "頂部狀態列",
+        "interaction.showStatusBar.desc": "在懸浮窗頂部顯示時間與狀態",
+        "interaction.showUndoRedo.label": "顯示復原/重做",
+        "about.version.label": "軟體版本",
+        "about.version.copyright": "copyright 2025-2026 Seirai Haraguchi / YunoFactory │ 本程式依據 GNU General Public License 3 授權",
+        "about.version.github": "GitHub 儲存庫",
+        "about.version.qq": "QQ群",
+        "about.checkUpdate.label": "檢查更新",
+        "debug.createDialog.label": "建立 Dialog",
+        "debug.createDialog.desc": "測試全新的 Dialog 設計風格",
+        "debug.triggerCrash.label": "觸發測試當機",
+        "debug.triggerCrash.desc": "手動觸發一個 RuntimeError 以測試當機處理器的表現"
+      },
+      "ja-JP": {
+        "nav.general": "一般",
+        "nav.interaction": "インタラクション",
+        "nav.about": "情報",
+        "nav.debug": "デバッグ",
+        "section.general": "一般",
+        "section.interaction": "インタラクション",
+        "section.about": "情報",
+        "section.debug": "デバッグ",
+        "group.appearance": "外観",
+        "group.general": "一般",
+        "group.interaction": "インタラクション",
+        "group.debugOptions": "デバッグオプション",
+        "appearance.mode.label": "テーマモード",
+        "appearance.mode.desc": "アプリの表示テーマを切り替えます",
+        "appearance.mode.light": "ライト",
+        "appearance.mode.dark": "ダーク",
+        "appearance.mode.auto": "システムに合わせる",
+        "general.runAtStartup.label": "起動時に自動実行",
+        "general.autoShowOverlay.label": "オーバーレイを自動表示",
+        "general.autoShowOverlay.desc": "PPT スライドショーを検出したらツールバーを自動表示します",
+        "general.language.label": "表示言語",
+        "general.language.desc": "言語変更後は再起動するとすべての画面に反映されます",
+        "general.language.warning": "現在選択されている言語は簡体字中国語ではありません。最高の体験を得るためには、簡体字中国語の使用をお勧めします。他の言語では翻訳が不完全であったり、レイアウトが崩れたりする可能性があります。",
+        "language.zh-CN": "簡体字中国語",
+        "language.zh-TW": "繁体字中国語",
+        "language.ja-JP": "日本語",
+        "language.en-US": "英語",
+        "interaction.autoHandleInk.label": "インクを自動処理",
+        "interaction.autoHandleInk.desc": "スライドショー終了時に「インクを保持するか」を自動処理します",
+        "interaction.showStatusBar.label": "上部ステータスバー",
+        "interaction.showStatusBar.desc": "オーバーレイ上部に時間と状態を表示します",
+        "interaction.showUndoRedo.label": "元に戻す/やり直しを表示",
+        "about.version.label": "ソフトウェアバージョン",
+        "about.version.copyright": "copyright 2025-2026 Seirai Haraguchi / YunoFactory │ 本プログラムは GNU General Public License 3 に基づきライセンスされています",
+        "about.version.github": "GitHub リポジトリ",
+        "about.version.qq": "QQ グループ",
+        "about.checkUpdate.label": "更新を確認",
+        "debug.createDialog.label": "Dialog を作成",
+        "debug.createDialog.desc": "新しい Dialog デザインをテストします",
+        "debug.triggerCrash.label": "テストクラッシュを発生",
+        "debug.triggerCrash.desc": "RuntimeError を発生させてクラッシュハンドラをテストします"
+      },
+      "en-US": {
+        "nav.general": "General",
+        "nav.interaction": "Interaction",
+        "nav.about": "About",
+        "nav.debug": "Debug",
+        "section.general": "General",
+        "section.interaction": "Interaction",
+        "section.about": "About",
+        "section.debug": "Debug",
+        "group.appearance": "Appearance",
+        "group.general": "General",
+        "group.interaction": "Interaction",
+        "group.debugOptions": "Debug options",
+        "appearance.mode.label": "Theme mode",
+        "appearance.mode.desc": "Adjust the display theme of the application",
+        "appearance.mode.light": "Light",
+        "appearance.mode.dark": "Dark",
+        "appearance.mode.auto": "Follow system",
+        "general.runAtStartup.label": "Run at startup",
+        "general.autoShowOverlay.label": "Auto show overlay",
+        "general.autoShowOverlay.desc": "Automatically show toolbar when PPT slideshow is detected",
+        "general.language.label": "Interface language",
+        "general.language.desc": "Restart is required for the language to apply everywhere",
+        "language.zh-CN": "Simplified Chinese",
+        "language.zh-TW": "Traditional Chinese",
+        "language.ja-JP": "Japanese",
+        "language.en-US": "English",
+        "interaction.autoHandleInk.label": "Auto handle ink",
+        "interaction.autoHandleInk.desc": "Automatically handle \"keep ink\" prompt when slideshow ends",
+        "interaction.showStatusBar.label": "Top status bar",
+        "interaction.showStatusBar.desc": "Show time and status at top of overlay",
+        "interaction.showUndoRedo.label": "Show undo/redo",
+        "about.version.label": "Software version",
+        "about.version.copyright": "copyright 2025-2026 Seirai Haraguchi / YunoFactory │ Licensed under the GNU General Public License 3",
+        "about.version.github": "GitHub repository",
+        "about.version.qq": "QQ group",
+        "about.checkUpdate.label": "Check for updates",
+        "debug.createDialog.label": "Create Dialog",
+        "debug.createDialog.desc": "Test the new Dialog design style",
+        "debug.triggerCrash.label": "Trigger test crash",
+        "debug.triggerCrash.desc": "Manually trigger a RuntimeError to test the crash handler",
+        "general.language.warning": "The currently selected language is not Simplified Chinese. For the best experience, it is recommended to use Simplified Chinese. Other languages may have incomplete translations or layout issues."
+      }
+    };
+
+    let currentLanguage = "zh-CN";
+
+    function getText(key) {
+      const langPack = I18N[currentLanguage] || I18N["zh-CN"];
+      if (langPack && key in langPack) return langPack[key];
+      const fallback = I18N["zh-CN"];
+      if (fallback && key in fallback) return fallback[key];
+      return "";
+    }
+
+    function applyLanguageFont() {
+      const isSpecial = currentLanguage === "zh-TW" || currentLanguage === "ja-JP";
+      const fontStack = isSpecial
+        ? "\"MiSans Latin\", \"Yu Gothic UI\", system-ui, sans-serif"
+        : "\"MiSans Latin\", \"HarmonyOS Sans SC\", \"Source Han Sans CN\", \"Noto Sans CJK SC\", \"Microsoft YaHei\", system-ui, sans-serif";
+      document.documentElement.style.setProperty("--font-stack", fontStack);
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = currentLanguage;
+      applyLanguageFont();
+      
+      const warningEl = document.getElementById("language-warning");
+      if (warningEl) {
+        warningEl.style.display = currentLanguage === "zh-CN" ? "none" : "flex";
+      }
+
+      const nodes = document.querySelectorAll("[data-i18n]");
+      nodes.forEach(node => {
+        const key = node.getAttribute("data-i18n");
+        const text = getText(key);
+        if (text) node.textContent = text;
+      });
+      const activeItem = document.querySelector(".sidebar-item.active");
+      const title = document.getElementById("section-title");
+      if (activeItem && title) {
+        const sectionKey = activeItem.getAttribute("data-section");
+        const key = "section." + sectionKey;
+        const text = getText(key);
+        if (text) title.textContent = text;
+      }
+      const langButtons = document.querySelectorAll(".language-option");
+      langButtons.forEach(btn => {
+        const lang = btn.getAttribute("data-lang");
+        const key = "language." + lang;
+        const text = getText(key);
+        if (text) btn.textContent = text;
+      });
+      const langValue = currentLanguage;
+      langButtons.forEach(btn => {
+        if (btn.getAttribute("data-lang") === langValue) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+    }
+
     function initNav() {
       const items = document.querySelectorAll(".sidebar-item");
       const sections = document.querySelectorAll(".section");
       const title = document.getElementById("section-title");
-      const titleMap = {
-        general: "通用",
-        interaction: "交互",
-        about: "关于",
-        debug: "调试"
-      };
       items.forEach(function (item) {
         item.addEventListener("click", function () {
           const key = item.getAttribute("data-section");
@@ -639,9 +923,11 @@
           sections.forEach(function (sec) {
             sec.classList.toggle("active", sec.id === "section-" + key);
           });
-          if (title && titleMap[key]) {
-            title.textContent = titleMap[key];
-            title.style.display = key === 'about' ? 'none' : 'block';
+          if (title) {
+            const textKey = "section." + key;
+            const text = getText(textKey);
+            if (text) title.textContent = text;
+            title.style.display = key === "about" ? "none" : "block";
           }
         });
       });
@@ -656,14 +942,17 @@
     initNav();
 
     let settings = window.initialSettings || {
-      General: { RunAtStartup: false, AutoShowOverlay: true },
+      General: { RunAtStartup: false, AutoShowOverlay: true, Language: "zh-CN" },
       PPT: { AutoHandleInk: true },
       Overlay: { ShowStatusBar: true },
       Toolbar: { ShowUndoRedo: false },
-      Appearance: { ThemeMode: 'Light' }
+      Appearance: { ThemeMode: "Light" }
     };
 
-    // Apply immediately if injected
+    if (window.initialSettings && window.initialSettings.General && window.initialSettings.General.Language) {
+      currentLanguage = window.initialSettings.General.Language;
+    }
+
     if (window.initialSettings) {
       applySettingsToUI();
     }
@@ -671,43 +960,51 @@
     window.addEventListener('pywebviewready', () => {
       if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_settings) return;
       
-      // Still fetch to be sure, but we already have initialSettings
       window.pywebview.api.get_settings().then(function (res) {
         if (res && Object.keys(res).length > 0) {
           settings = res;
+          const lang = settings.General && settings.General.Language;
+          if (lang) currentLanguage = lang;
+          applySettingsToUI();
+        } else {
           applySettingsToUI();
         }
-      }).catch(err => console.error("Failed to get settings:", err));
+      }).catch(err => {
+        console.error("Failed to get settings:", err);
+        applySettingsToUI();
+      });
     });
 
     function applySettingsToUI() {
-      setSwitch('General', 'RunAtStartup');
-      setSwitch('General', 'AutoShowOverlay');
-      setSwitch('PPT', 'AutoHandleInk');
-      setSwitch('Overlay', 'ShowStatusBar');
-      setSwitch('Toolbar', 'ShowUndoRedo');
+      setSwitch("General", "RunAtStartup");
+      setSwitch("General", "AutoShowOverlay");
+      setSwitch("PPT", "AutoHandleInk");
+      setSwitch("Overlay", "ShowStatusBar");
+      setSwitch("Toolbar", "ShowUndoRedo");
 
-      const mode = settings.Appearance?.ThemeMode || 'Light';
-      document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+      const lang = settings.General && settings.General.Language;
+      if (lang) currentLanguage = lang;
+
+      const mode = settings.Appearance && settings.Appearance.ThemeMode ? settings.Appearance.ThemeMode : "Light";
+      document.querySelectorAll(".theme-option").forEach(opt => opt.classList.remove("active"));
       const activeOpt = document.getElementById(`theme-${mode}`);
-      if (activeOpt) activeOpt.classList.add('active');
+      if (activeOpt) activeOpt.classList.add("active");
 
-      if (mode === 'Auto') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      if (mode === "Auto") {
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
       } else {
-        document.documentElement.setAttribute('data-theme', mode.toLowerCase());
+        document.documentElement.setAttribute("data-theme", mode.toLowerCase());
       }
 
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const accent = isDark ? '#E1EBFF' : '#3275F5';
-      document.documentElement.style.setProperty('--accent-blue', accent);
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      const accent = isDark ? "#E1EBFF" : "#3275F5";
+      document.documentElement.style.setProperty("--accent-blue", accent);
 
       if (window.pywebview && window.pywebview.api && window.pywebview.api.get_version) {
         window.pywebview.api.get_version().then(v => {
           if (!v) return;
           const codeName = v.code_name || "";
-          const codeNameCN = v.code_name_CN || "";
           const version = v.version || "";
           const build = v.build != null ? v.build : "";
           const el = document.getElementById("app-version");
@@ -716,6 +1013,8 @@
           }
         }).catch(err => console.error("Failed to get version:", err));
       }
+
+      applyI18n();
     }
 
     function setTheme(mode) {
@@ -723,7 +1022,17 @@
       settings.Appearance.ThemeMode = mode;
       applySettingsToUI();
       if (window.pywebview && window.pywebview.api.save_setting) {
-        window.pywebview.api.save_setting('Appearance', 'ThemeMode', mode);
+        window.pywebview.api.save_setting("Appearance", "ThemeMode", mode);
+      }
+    }
+
+    function setLanguage(lang) {
+      if (!settings.General) settings.General = {};
+      settings.General.Language = lang;
+      currentLanguage = lang;
+      applySettingsToUI();
+      if (window.pywebview && window.pywebview.api.save_setting) {
+        window.pywebview.api.save_setting("General", "Language", lang);
       }
     }
 

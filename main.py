@@ -5,8 +5,7 @@ import tempfile
 import subprocess
 import json
 
-# Minimal imports for fast startup and crash handling
-from PySide6.QtWidgets import QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QFrame, QGraphicsDropShadowEffect
+from PySide6.QtWidgets import QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QFrame, QGraphicsDropShadowEffect, QProgressBar
 from PySide6.QtCore import Qt, QTimer, Slot, QSize
 from PySide6.QtGui import QFontDatabase, QFont, QColor, QIcon
 
@@ -15,6 +14,34 @@ from ppt_assistant.ui.overlay import OverlayWindow
 from plugins.builtins.settings.plugin import SettingsPlugin
 from ppt_assistant.ui.tray import SystemTray
 from ppt_assistant.core.config import cfg, SETTINGS_PATH, reload_cfg, _apply_theme_and_color
+
+
+SPLASH_I18N = {
+    "zh-CN": {
+        "initializing": "正在初始化",
+    },
+    "zh-TW": {
+        "initializing": "正在初始化",
+    },
+    "ja-JP": {
+        "initializing": "初期化中",
+    },
+    "en-US": {
+        "initializing": "Initializing",
+    }
+}
+
+
+def _get_current_language():
+    try:
+        if os.path.exists(SETTINGS_PATH):
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("General", {}).get("Language", "zh-CN")
+    except Exception:
+        pass
+    return "zh-CN"
+
 
 def _apply_global_font(app: QApplication):
     root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +58,195 @@ def _apply_global_font(app: QApplication):
     font = QFont(family)
     app.setFont(font)
 
-def show_webview_dialog(title, text, confirm_text="确认", cancel_text="取消", is_error=False, hide_cancel=False):
+
+def _load_version_info():
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    version_path = os.path.join(root_dir, "version.json")
+    version = ""
+    code_name = ""
+    code_name_cn = ""
+    if os.path.exists(version_path):
+        try:
+            with open(version_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            version = data.get("version", "")
+            raw_code_name = data.get("code_name", "")
+            code_name_cn = data.get("code_name_CN", "")
+            mapping = {
+                "MomokaKawaragi": "Momoka Kawaragi"
+            }
+            code_name = mapping.get(raw_code_name, raw_code_name)
+        except Exception:
+            pass
+    return version, code_name, code_name_cn
+
+
+class StartupSplash(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        self._container = QFrame(self)
+        self._container.setObjectName("splashContainer")
+
+        self._version_text, self._code_name_en, self._code_name_cn = _load_version_info()
+        self._language = _get_current_language()
+
+        self._build_ui()
+        self._apply_styles()
+        self._center_on_screen()
+
+        self._progress_timer = QTimer(self)
+        self._progress_timer.timeout.connect(self._advance_progress)
+        self._progress_timer.start(30)
+
+    def _build_ui(self):
+        # Using absolute positioning based on QML study
+        self._container.setFixedSize(899, 286)
+        
+        # Logo (kZHTXT_2)
+        self._icon_label = QLabel(self._container)
+        self._icon_label.setFixedSize(64, 64)
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "logo.svg")
+        if os.path.exists(icon_path):
+            icon = QIcon(icon_path)
+            pix = icon.pixmap(64, 64)
+            self._icon_label.setPixmap(pix)
+        self._icon_label.move(38, 47)
+
+        # Brand name (kazuha)
+        self._brand_label = QLabel("Kazuha", self._container)
+        brand_font = QFont("Bahnschrift")
+        brand_font.setPixelSize(36)
+        brand_font.setBold(True)
+        self._brand_label.setFont(brand_font)
+        self._brand_label.setFixedWidth(328)
+        self._brand_label.move(38, 143)
+
+        # Version/Codename (Right side - following QML's momoka_Kawaragi_ image position)
+        self._right_container = QWidget(self._container)
+        self._right_container.setFixedWidth(226) # 899 - 635 - 38
+        self._right_container.move(635, 47)
+        right_layout = QVBoxLayout(self._right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(2)
+
+        self._version_label = QLabel(self._version_text or "")
+        version_font = QFont("Bahnschrift")
+        version_font.setPixelSize(12)
+        version_font.setStretch(75)
+        self._version_label.setFont(version_font)
+        self._version_label.setAlignment(Qt.AlignRight)
+
+        self._code_name_en_label = QLabel(self._code_name_en or "")
+        code_en_font = QFont("Bahnschrift")
+        code_en_font.setPixelSize(22)
+        code_en_font.setBold(True)
+        code_en_font.setStretch(75)
+        self._code_name_en_label.setFont(code_en_font)
+        self._code_name_en_label.setAlignment(Qt.AlignRight)
+
+        self._code_name_cn_label = QLabel(self._code_name_cn or "")
+        code_cn_font = QFont()
+        code_cn_font.setPixelSize(11)
+        self._code_name_cn_label.setFont(code_cn_font)
+        self._code_name_cn_label.setAlignment(Qt.AlignRight)
+
+        right_layout.addWidget(self._version_label)
+        right_layout.addWidget(self._code_name_en_label)
+        right_layout.addWidget(self._code_name_cn_label)
+
+        # Status text (element)
+        init_text = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"])["initializing"]
+        self._percent_label = QLabel(f"8% {init_text}", self._container)
+        percent_font = QFont()
+        percent_font.setPixelSize(13)
+        self._percent_label.setFont(percent_font)
+        self._percent_label.setFixedWidth(221)
+        self._percent_label.setAlignment(Qt.AlignRight)
+        self._percent_label.move(643, 220)
+
+        # Progress bar (rectangle_30 & rectangle_31)
+        self._progress = QProgressBar(self._container)
+        self._progress.setRange(0, 100)
+        self._progress.setValue(8)
+        self._progress.setTextVisible(False)
+        self._progress.setFixedHeight(8)
+        self._progress.setFixedWidth(823) # 899 - 38 - 38
+        self._progress.move(38, 248)
+
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(24)
+        shadow.setOffset(0, 8)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        self._container.setGraphicsEffect(shadow)
+
+    def _apply_styles(self):
+        from qfluentwidgets import isDarkTheme
+        self._is_dark = isDarkTheme()
+        
+        bg_color = "#202020" if self._is_dark else "white"
+        brand_color = "#FFFFFF" if self._is_dark else "#000000"
+        version_color = "#E0E0E0" if self._is_dark else "#222222"
+        codename_en_color = "#FFFFFF" if self._is_dark else "#000000"
+        codename_cn_color = "#AAAAAA" if self._is_dark else "#999999"
+        percent_color = "#FFFFFF" if self._is_dark else "#000000"
+        progress_bg = "rgba(255, 255, 255, 0.1)" if self._is_dark else "rgba(69, 69, 69, 0.16)"
+        chunk_color = "#E1EBFF" if self._is_dark else "#3275F5"
+
+        self.resize(899, 286)
+        self._container.setStyleSheet(
+            f"QFrame#splashContainer {{"
+            f"background-color: {bg_color};"
+            "border-radius: 5px;"
+            "}"
+        )
+        self._brand_label.setStyleSheet(f"color: {brand_color};")
+        self._version_label.setStyleSheet(f"color: {version_color};")
+        self._code_name_en_label.setStyleSheet(f"color: {codename_en_color};")
+        self._code_name_cn_label.setStyleSheet(f"color: {codename_cn_color};")
+        self._percent_label.setStyleSheet(f"color: {percent_color};")
+        self._progress.setStyleSheet(
+            "QProgressBar {"
+            f"background-color: {progress_bg};"
+            "border-radius: 4px;"
+            "border: none;"
+            "}"
+            "QProgressBar::chunk {"
+            f"background-color: {chunk_color};"
+            "border-radius: 4px;"
+            "}"
+        )
+
+    def _center_on_screen(self):
+        screen = QApplication.primaryScreen()
+        if not screen:
+            return
+        screen_geo = screen.geometry()
+        w = self.width()
+        h = self.height()
+        x = screen_geo.x() + (screen_geo.width() - w) // 2
+        y = screen_geo.y() + (screen_geo.height() - h) // 2
+        self.move(x, y)
+
+    def _advance_progress(self):
+        value = self._progress.value()
+        if value < 95:
+            value += 1
+            self._progress.setValue(value)
+            init_text = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"])["initializing"]
+            self._percent_label.setText(f"{value}% {init_text}")
+        else:
+            self._progress_timer.stop()
+
+    def finish(self):
+        self._progress_timer.stop()
+        self._progress.setValue(100)
+        self._percent_label.setText("100% 初始化完成")
+        QTimer.singleShot(250, self.close)
+
+def show_webview_dialog(title, text, confirm_text="确认", cancel_text="取消", is_error=False, hide_cancel=False, code=None):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     theme = "auto"
     accent = "#3275F5"
@@ -59,6 +274,8 @@ def show_webview_dialog(title, text, confirm_text="确认", cancel_text="取消"
         "theme": theme,
         "accentColor": accent
     }
+    if code is not None:
+        dialog_data["code"] = code
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
         json.dump(dialog_data, f)
@@ -150,10 +367,13 @@ def _handle_multi_instance(app: QApplication):
     if not pids: return
     
     proc = show_webview_dialog(
-        title="检测到程序已在运行",
-        text="检测到已有一个实例在运行。\n\n选择要执行的操作：",
-        confirm_text="终止旧的并运行",
-        cancel_text="同时退出"
+        title="",
+        text="",
+        confirm_text="",
+        cancel_text="",
+        is_error=False,
+        hide_cancel=False,
+        code="multi_instance"
     )
     
     # Wait for the process to exit and check stdout for result
@@ -172,9 +392,10 @@ def _handle_multi_instance(app: QApplication):
 
 
 class PPTAssistantApp:
-    def __init__(self, app: QApplication):
+    def __init__(self, app: QApplication, splash=None):
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
+        self._splash = splash
         
         _apply_theme_and_color(cfg.themeMode.value)
         
@@ -197,6 +418,9 @@ class PPTAssistantApp:
         self._connect_signals()
 
         self.monitor.start_monitoring()
+
+        if self._splash is not None:
+            self._splash.finish()
 
     def _connect_signals(self):
         self.monitor.slideshow_started.connect(self.on_slideshow_start)
@@ -267,10 +491,15 @@ if __name__ == "__main__":
         sys.exit(0)
 
     app = QApplication(sys.argv)
+    _apply_global_font(app)
     crash_handler = CrashHandler(app)
     _handle_multi_instance(app)
-    
-    app_instance = PPTAssistantApp(app)
+
+    splash = StartupSplash()
+    splash.show()
+    app.processEvents()
+
+    app_instance = PPTAssistantApp(app, splash)
     crash_handler.set_app_instance(app_instance)
     app_instance.run()
 

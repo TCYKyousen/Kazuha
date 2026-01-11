@@ -226,7 +226,134 @@
     const btnCancel = document.getElementById('btn-cancel');
     const btnConfirm = document.getElementById('btn-confirm');
 
+    const I18N = {
+      "zh-CN": {
+        "dialog.generic.ok": "确认",
+        "dialog.generic.cancel": "取消",
+        "dialog.crash.title": "程序崩溃了 (´；ω；`)",
+        "dialog.crash.confirm": "关闭",
+        "dialog.crash.cancel": "复制错误",
+        "dialog.multiInstance.title": "检测到程序已在运行",
+        "dialog.multiInstance.text": "检测到已有一个实例在运行。\n\n选择要执行的操作：",
+        "dialog.multiInstance.confirm": "终止旧的并运行",
+        "dialog.multiInstance.cancel": "同时退出",
+        "testDialog.title": "测试对话框",
+        "testDialog.confirm": "我知道了",
+        "testDialog.cancel": "关闭"
+      },
+      "zh-TW": {
+        "dialog.generic.ok": "確認",
+        "dialog.generic.cancel": "取消",
+        "dialog.crash.title": "程式崩潰了 (´；ω；`)",
+        "dialog.crash.confirm": "關閉",
+        "dialog.crash.cancel": "複製錯誤",
+        "dialog.multiInstance.title": "檢測到程式已在執行",
+        "dialog.multiInstance.text": "檢測到已有一個實例在執行。\n\n請選擇要執行的操作：",
+        "dialog.multiInstance.confirm": "終止舊實例並啟動",
+        "dialog.multiInstance.cancel": "同時退出",
+        "testDialog.title": "測試對話框",
+        "testDialog.confirm": "我知道了",
+        "testDialog.cancel": "關閉"
+      },
+      "ja-JP": {
+        "dialog.generic.ok": "確認",
+        "dialog.generic.cancel": "キャンセル",
+        "dialog.crash.title": "プログラムがクラッシュしました (´；ω；`)",
+        "dialog.crash.confirm": "閉じる",
+        "dialog.crash.cancel": "エラーをコピー",
+        "dialog.multiInstance.title": "すでにプログラムが実行中です",
+        "dialog.multiInstance.text": "既に別のインスタンスが実行されています。\n\n実行する操作を選択してください:",
+        "dialog.multiInstance.confirm": "古いインスタンスを終了して起動",
+        "dialog.multiInstance.cancel": "両方終了する",
+        "testDialog.title": "テストダイアログ",
+        "testDialog.confirm": "了解しました",
+        "testDialog.cancel": "閉じる"
+      },
+      "en-US": {
+        "dialog.generic.ok": "OK",
+        "dialog.generic.cancel": "Cancel",
+        "dialog.crash.title": "Application crashed (´；ω；`)",
+        "dialog.crash.confirm": "Close",
+        "dialog.crash.cancel": "Copy error",
+        "dialog.multiInstance.title": "Another instance is already running",
+        "dialog.multiInstance.text": "An existing instance is already running.\n\nChoose what to do:",
+        "dialog.multiInstance.confirm": "Terminate old and run",
+        "dialog.multiInstance.cancel": "Exit both",
+        "testDialog.title": "Test dialog",
+        "testDialog.confirm": "Got it",
+        "testDialog.cancel": "Close"
+      }
+    };
+
+    let currentLanguage = "zh-CN";
+    if (window.initialSettings && window.initialSettings.General && window.initialSettings.General.Language) {
+      currentLanguage = window.initialSettings.General.Language;
+    }
+
+    function getText(key) {
+      const langPack = I18N[currentLanguage] || I18N["zh-CN"];
+      if (langPack && key in langPack) return langPack[key];
+      const fallback = I18N["zh-CN"];
+      if (fallback && key in fallback) return fallback[key];
+      return "";
+    }
+
+    function applyLanguageFont() {
+      const isSpecial = currentLanguage === "zh-TW" || currentLanguage === "ja-JP";
+      const fontStack = isSpecial
+        ? "\"MiSans Latin\", \"Yu Gothic UI\", system-ui, sans-serif"
+        : "\"MiSans Latin\", \"HarmonyOS Sans SC\", \"Source Han Sans CN\", \"Noto Sans CJK SC\", \"Microsoft YaHei\", system-ui, sans-serif";
+      document.documentElement.style.setProperty("--font-stack", fontStack);
+      document.documentElement.lang = currentLanguage;
+    }
+
     function init(data) {
+      applyLanguageFont();
+
+      const isCrash = !!data.isError;
+      const isMulti = data.code === "multi_instance";
+      const isTest = data.code === "test_dialog";
+
+      if (!data.title) {
+        if (isCrash) {
+          data.title = getText("dialog.crash.title") || "程序崩溃了 (´；ω；`) ";
+        } else if (isMulti) {
+          data.title = getText("dialog.multiInstance.title") || "检测到程序已在运行";
+        } else if (isTest) {
+          data.title = getText("testDialog.title") || "测试对话框";
+        }
+      }
+
+      if (!data.text) {
+        if (isMulti) {
+          data.text = getText("dialog.multiInstance.text");
+        }
+      }
+
+      if (!data.confirmText) {
+        if (isCrash) {
+          data.confirmText = getText("dialog.crash.confirm") || getText("dialog.generic.ok");
+        } else if (isMulti) {
+          data.confirmText = getText("dialog.multiInstance.confirm") || getText("dialog.generic.ok");
+        } else if (isTest) {
+          data.confirmText = getText("testDialog.confirm") || getText("dialog.generic.ok");
+        } else {
+          data.confirmText = getText("dialog.generic.ok") || "确认";
+        }
+      }
+
+      if (!data.cancelText && !data.hideCancel) {
+        if (isCrash) {
+          data.cancelText = getText("dialog.crash.cancel") || getText("dialog.generic.cancel");
+        } else if (isMulti) {
+          data.cancelText = getText("dialog.multiInstance.cancel") || getText("dialog.generic.cancel");
+        } else if (isTest) {
+          data.cancelText = getText("testDialog.cancel") || getText("dialog.generic.cancel");
+        } else {
+          data.cancelText = getText("dialog.generic.cancel") || "取消";
+        }
+      }
+
       if (data.title) titleEl.innerText = data.title;
       if (data.text) textEl.innerText = data.text;
       if (data.isError) {
@@ -260,7 +387,6 @@
       }
     }
 
-    // JS Bridge for real-time updates
     function updateTheme(mode) {
       let theme = mode || 'light';
       if (theme === 'auto') {
@@ -274,9 +400,10 @@
 
     function updateAccentColor() {}
 
-    // Initialize when pywebview is ready
     window.addEventListener('pywebviewready', () => {
-      window.pywebview.api.get_dialog_data().then(init);
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_dialog_data) {
+        window.pywebview.api.get_dialog_data().then(init);
+      }
     });
   </script>
 </body>

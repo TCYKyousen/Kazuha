@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Dialog</title>
+  <style>
+    :root {
+      --bg-body: #F3F3F3;
+      --bg-app: #FFFFFF;
+      --text-primary: #191919;
+      --text-secondary: #666666;
+      --accent-blue: #3275F5;
+      --divider: rgba(0, 0, 0, 0.05);
+      --card-bg: #F8F9FB;
+      --btn-cancel-bg: #F5F5F5;
+      --font-stack: "MiSans Latin", "HarmonyOS Sans SC", "Source Han Sans CN", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg-body: #121212;
+      --bg-app: #1E1E1E;
+      --text-primary: #E5E5E5;
+      --text-secondary: #909090;
+      --accent-blue: #4A85F6;
+      --divider: rgba(255, 255, 255, 0.08);
+      --card-bg: rgba(255, 255, 255, 0.05);
+      --btn-cancel-bg: #2C2C2C;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-drag: none;
+    }
+
+    html, body {
+      background: var(--bg-body) !important;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      color: var(--text-primary);
+      font-family: var(--font-stack);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-body) !important;
+    }
+
+    .dialog-window {
+      background: var(--bg-body);
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drag-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      -webkit-app-region: drag;
+      z-index: 100;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 24px 20px 24px;
+      gap: 16px;
+      position: relative;
+    }
+
+    .title {
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--text-primary);
+      padding: 0 4px;
+    }
+
+    .content-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg-app);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid var(--divider);
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    }
+
+    [data-theme="dark"] .content-container {
+      background: var(--bg-app);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+    }
+
+    .text-content {
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .error-card {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+      background: rgba(0, 0, 0, 0.02);
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    [data-theme="dark"] .error-card {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 0 4px;
+    }
+
+    .btn {
+      min-width: 88px;
+      height: 34px;
+      border-radius: 17px;
+      border: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+    }
+
+    .btn-cancel {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--divider);
+    }
+
+    .btn-cancel:hover {
+      background: rgba(0, 0, 0, 0.04);
+      color: var(--text-primary);
+    }
+
+    [data-theme="dark"] .btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-confirm {
+      background: transparent;
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+    }
+
+    .btn-confirm:hover {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+    }
+
+    .btn:active {
+      transform: translateY(0);
+      filter: brightness(0.9);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--divider);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="dialog-window">
+    <div class="drag-area"></div>
+    <div class="container">
+      <div id="title" class="title">提示</div>
+      <div class="content-container">
+        <div id="text-content" class="text-content"></div>
+        <div id="error-card" class="error-card" style="display: none;"></div>
+      </div>
+      <div class="footer">
+        <button id="btn-cancel" class="btn btn-cancel" onclick="onCancel()">取消</button>
+        <button id="btn-confirm" class="btn btn-confirm" onclick="onConfirm()">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const titleEl = document.getElementById('title');
+    const textEl = document.getElementById('text-content');
+    const errorEl = document.getElementById('error-card');
+    const btnCancel = document.getElementById('btn-cancel');
+    const btnConfirm = document.getElementById('btn-confirm');
+
+    function init(data) {
+      if (data.title) titleEl.innerText = data.title;
+      if (data.text) textEl.innerText = data.text;
+      if (data.isError) {
+        errorEl.innerText = data.text;
+        errorEl.style.display = 'block';
+        textEl.style.display = 'none';
+      }
+      if (data.confirmText) btnConfirm.innerText = data.confirmText;
+      if (data.cancelText) btnCancel.innerText = data.cancelText;
+      if (data.hideCancel) btnCancel.style.display = 'none';
+      
+      let mode = data.theme || 'light';
+      if (mode === 'auto') {
+        mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      const isDark = mode === 'dark';
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      const accent = isDark ? '#E1EBFF' : '#3275F5';
+      document.documentElement.style.setProperty('--accent-blue', accent);
+    }
+
+    function onConfirm() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.on_confirm();
+      }
+    }
+
+    function onCancel() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.on_cancel();
+      }
+    }
+
+    // JS Bridge for real-time updates
+    function updateTheme(mode) {
+      let theme = mode || 'light';
+      if (theme === 'auto') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      const isDark = theme === 'dark';
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      const accent = isDark ? '#E1EBFF' : '#3275F5';
+      document.documentElement.style.setProperty('--accent-blue', accent);
+    }
+
+    function updateAccentColor() {}
+
+    // Initialize when pywebview is ready
+    window.addEventListener('pywebviewready', () => {
+      window.pywebview.api.get_dialog_data().then(init);
+    });
+  </script>
+</body>
+</html>

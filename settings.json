@@ -1,0 +1,26 @@
+{
+    "PPT": {
+        "AutoHandleInk": true
+    },
+    "General": {
+        "AutoShowOverlay": true,
+        "RunAtStartup": false
+    },
+    "QFluentWidgets": {
+        "FontFamilies": [
+            "Segoe UI",
+            "Microsoft YaHei",
+            "PingFang SC"
+        ],
+        "ThemeColor": "#ffe1ebff"
+    },
+    "Overlay": {
+        "ShowStatusBar": true
+    },
+    "Toolbar": {
+        "ShowUndoRedo": false
+    },
+    "Appearance": {
+        "ThemeMode": "Auto"
+    }
+}

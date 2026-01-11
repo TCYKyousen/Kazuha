@@ -1,0 +1,8 @@
+{
+    "name": "Status Bar",
+    "description": "Kazuha 的状态栏插件。",
+    "entry": "plugin.StatusBarPlugin",
+    "version": "1.0.0",
+    "icon": "",
+    "type": "status_bar"
+}

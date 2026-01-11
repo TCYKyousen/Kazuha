@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Timer</title>
+  <style>
+    :root {
+      --bg-app: #F5F6F8;
+      --bg-surface: #FFFFFF;
+      --text-primary: #191919;
+      --text-secondary: #8C8C8C;
+      --text-inverse: #FFFFFF;
+      --accent-blue: #3275F5;
+      --divider: rgba(0, 0, 0, 0.03);
+      --item-hover: rgba(0, 0, 0, 0.03);
+      --shadow-main: 0 4px 24px rgba(0, 0, 0, 0.04);
+      --ring-bg: rgba(0, 0, 0, 0.05);
+      --dialog-overlay: rgba(0, 0, 0, 0.4);
+      --dialog-icon-bg: #F2F7FF;
+      --font-stack: "MiSans Latin", "Source Han Sans SC", "Source Han Sans CN", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg-app: #121212;
+      --bg-surface: #1E1E1E;
+      --text-primary: #E5E5E5;
+      --text-secondary: #909090;
+      --text-inverse: #FFFFFF;
+      --accent-blue: #4A85F6;
+      --divider: rgba(255, 255, 255, 0.08);
+      --item-hover: rgba(255, 255, 255, 0.05);
+      --shadow-main: 0 8px 32px rgba(0, 0, 0, 0.3);
+      --ring-bg: rgba(255, 255, 255, 0.1);
+      --dialog-overlay: rgba(0, 0, 0, 0.6);
+      --dialog-icon-bg: rgba(255, 255, 255, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      background: var(--bg-app);
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      color: var(--text-primary);
+      font-family: var(--font-stack);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 100%;
+      padding: 12px;
+      gap: 12px;
+    }
+
+
+    /* === 侧边导航 === */
+    .sidebar {
+      width: 72px;
+      background: var(--bg-surface);
+      border-radius: 16px;
+      border: 1px solid var(--divider);
+      box-shadow: var(--shadow-main);
+      display: flex;
+      flex-direction: column;
+      padding: 12px 6px;
+      gap: 4px;
+      flex-shrink: 0;
+      margin-top: 0;
+    }
+
+    .drag-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      -webkit-app-region: drag;
+      z-index: 100;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      width: 100%;
+      height: 60px;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover {
+      color: var(--text-primary);
+      background: var(--item-hover);
+    }
+
+    .nav-item.active {
+      color: var(--accent-blue);
+      background: var(--item-hover);
+    }
+
+    .nav-icon {
+      width: 24px;
+      height: 24px;
+      background-color: currentColor;
+      -webkit-mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      -webkit-mask-position: center;
+    }
+
+    /* === 右侧内容区 === */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-top: 0;
+      min-width: 0;
+      position: relative;
+    }
+
+    .main-container {
+      flex: 1;
+      position: relative;
+      background: var(--bg-surface);
+      border-radius: 16px;
+      border: 1px solid var(--divider);
+      box-shadow: var(--shadow-main);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header-inline {
+      padding: 24px 32px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .view-section {
+      position: absolute;
+      top: 80px;
+      left: 0;
+      width: 100%;
+      bottom: 100px;
+      padding: 0 32px;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+      transform-origin: center bottom;
+      opacity: 0;
+      transform: translateX(100px) rotateY(-20deg) scale(0.9);
+      backface-visibility: hidden;
+    }
+
+    .view-section.active {
+      display: flex;
+      opacity: 1;
+      transform: translateX(0) rotateY(0) scale(1);
+      z-index: 2;
+    }
+
+    .view-section.exit-left {
+      display: flex;
+      opacity: 0;
+      transform: translateX(-100px) rotateY(20deg) scale(0.9);
+      pointer-events: none;
+    }
+
+    /* --- 秒表 --- */
+    #view-stopwatch {
+      justify-content: center;
+      align-items: center;
+    }
+
+    .stopwatch-display {
+      font-size: 88px;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 60px;
+      letter-spacing: -1px;
+      color: var(--text-primary);
+    }
+
+    /* --- 计时器 --- */
+    #view-timer {
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    /* --- Countdown UI --- */
+    .countdown-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-surface);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 5;
+    }
+
+    .countdown-container.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .progress-ring {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .progress-ring svg {
+      width: 300px;
+      height: 300px;
+    }
+
+    .progress-ring circle {
+      fill: transparent;
+      stroke-width: 6;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.1s linear;
+    }
+
+    .ring-bg {
+      stroke: var(--ring-bg);
+    }
+
+    .ring-val {
+      stroke: var(--accent-blue);
+    }
+
+    .countdown-text {
+      position: absolute;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .time-left {
+      font-size: 56px;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .total-time {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-top: 12px;
+      letter-spacing: 1px;
+    }
+
+    /* --- Bell Animation --- */
+    .bell-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .time-up-text {
+      font-size: 32px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    .icon-return {
+      width: 24px;
+      height: 24px;
+      color: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-return svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .wheel-picker-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 240px;
+      width: 100%;
+      position: relative;
+      /* Fade effect for top and bottom */
+      -webkit-mask-image: linear-gradient(to bottom,
+          transparent 0%, black 30%, black 70%, transparent 100%);
+      mask-image: linear-gradient(to bottom,
+          transparent 0%, black 30%, black 70%, transparent 100%);
+    }
+
+    .wheel-col-wrapper {
+      position: relative;
+      height: 100%;
+      width: 80px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .wheel-col {
+      height: 100%;
+      width: 100%;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      scrollbar-width: none;
+      padding-top: 80px;
+      /* (240 - 80) / 2 */
+      padding-bottom: 80px;
+    }
+
+    .wheel-col::-webkit-scrollbar {
+      display: none;
+    }
+
+    .wheel-item {
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 56px;
+      color: var(--text-primary);
+      scroll-snap-align: center;
+      transition: opacity 0.2s, transform 0.2s;
+      opacity: 0.3;
+      transform: scale(0.8);
+      cursor: grab;
+    }
+
+    .wheel-item:active {
+      cursor: grabbing;
+    }
+
+    .wheel-item.active {
+      opacity: 1;
+      transform: scale(1);
+      font-weight: 500;
+    }
+
+    .wheel-label {
+      position: absolute;
+      bottom: 90px;
+      right: -10px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+
+    .wheel-sep {
+      font-size: 40px;
+      margin: 0 10px;
+      color: var(--text-primary);
+      padding-bottom: 10px;
+      opacity: 0.5;
+    }
+
+    /* --- 控制按钮 --- */
+    .control-layer {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .play-btn {
+      width: 72px;
+      height: 72px;
+      background: var(--bg-surface);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-main);
+      cursor: pointer;
+      pointer-events: auto;
+      border: 1px solid var(--divider);
+      transition: transform 0.1s;
+    }
+
+    .play-btn:active {
+      transform: scale(0.9);
+    }
+
+    .icon-play {
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 18px solid var(--accent-blue);
+      margin-left: 4px;
+    }
+
+    .icon-pause {
+      width: 14px;
+      height: 20px;
+      border-left: 4px solid var(--accent-blue);
+      border-right: 4px solid var(--accent-blue);
+    }
+
+    /* === 确认对话框 === */
+    .dialog-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--dialog-overlay);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 32px;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+
+    .dialog-card {
+      width: 90%;
+      max-width: 320px;
+      background: var(--bg-surface);
+      border-radius: 24px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid var(--divider);
+      animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .dialog-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--dialog-icon-bg);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+
+    .dialog-icon svg {
+      width: 24px;
+      height: 24px;
+      color: var(--accent-blue);
+    }
+
+    .dialog-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .dialog-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.4;
+    }
+
+    .dialog-buttons {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .dialog-btn {
+      flex: 1;
+      height: 44px;
+      border-radius: 22px;
+      border: none;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .dialog-btn:active {
+      opacity: 0.7;
+    }
+
+    .dialog-btn.cancel {
+      background: var(--item-hover);
+      color: var(--text-primary);
+    }
+
+    .dialog-btn.confirm {
+      background: var(--accent-blue);
+      color: var(--text-inverse);
+    }
+
+    .icon-stopwatch {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>');
+    }
+
+    .icon-timer {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>');
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container" ondblclick="handleDblClick(event)">
+    <div class="sidebar">
+      <div class="nav-item active" data-target="view-stopwatch" data-title="秒表">
+        <div class="nav-icon icon-stopwatch"></div>
+        <span>秒表</span>
+      </div>
+      <div class="nav-item" data-target="view-timer" data-title="计时">
+        <div class="nav-icon icon-timer"></div>
+        <span>计时</span>
+      </div>
+    </div>
+
+    <div class="content-area">
+      <main class="main-container">
+        <header class="header-inline">
+          <div class="page-title" id="pageTitle">秒表</div>
+        </header>
+
+        <section id="view-stopwatch" class="view-section active">
+          <div class="stopwatch-display" id="stopwatchDisplay">00:00.00</div>
+        </section>
+
+        <section id="view-timer" class="view-section">
+          <div class="wheel-picker-container">
+            <div class="wheel-col-wrapper">
+              <div class="wheel-col" id="wheel-hour"></div>
+              <div class="wheel-label">时</div>
+            </div>
+            <div class="wheel-sep">:</div>
+            <div class="wheel-col-wrapper">
+              <div class="wheel-col" id="wheel-minute"></div>
+              <div class="wheel-label">分</div>
+            </div>
+            <div class="wheel-sep">:</div>
+            <div class="wheel-col-wrapper">
+              <div class="wheel-col" id="wheel-second"></div>
+              <div class="wheel-label">秒</div>
+            </div>
+          </div>
+
+          <div class="countdown-container" id="countdownUI">
+            <div class="progress-ring">
+              <svg width="300" height="300">
+                <circle class="ring-bg" cx="150" cy="150" r="140"></circle>
+                <circle class="ring-val" id="progressCircle" cx="150" cy="150" r="140"></circle>
+              </svg>
+              <div class="countdown-text">
+                <div class="time-left" id="timeLeftDisplay">00:00:00</div>
+                <div class="total-time" id="totalTimeDisplay">共0秒</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bell-container" id="bellUI">
+            <div class="time-up-text">时间到</div>
+          </div>
+        </section>
+
+        <div class="control-layer">
+          <button class="play-btn" id="mainActionBtn">
+            <div class="icon-play" id="mainIcon"></div>
+          </button>
+        </div>
+      </main>
+    </div>
+  </div> <!-- end of container -->
+    <div class="dialog-overlay" id="exitDialog">
+    <div class="dialog-card">
+      <div class="dialog-title">确认退出</div>
+      <div class="dialog-desc">计时器正在运行，退出将清空当前计时进度。确定要退出吗？</div>
+      <div class="dialog-buttons">
+        <button class="dialog-btn cancel" onclick="hideExitDialog()">取消</button>
+        <button class="dialog-btn confirm" onclick="winClose()">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const exitDialog = document.getElementById('exitDialog');
+
+    function showExitDialog() {
+      exitDialog.style.display = 'flex';
+    }
+
+    function hideExitDialog() {
+      exitDialog.style.display = 'none';
+    }
+
+    function handleDblClick(e) {
+      if (e.target.classList.contains('container')) {
+        showExitDialog();
+      }
+    }
+
+    window.addEventListener('pywebviewready', () => {
+      if (typeof updateButtonState === 'function') updateButtonState();
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.get_settings().then(settings => {
+          if (settings && settings.Appearance) {
+            const themeMode = settings.Appearance.ThemeMode || 'Light';
+            applyTheme(themeMode);
+          } else {
+            applyTheme('Light');
+          }
+        });
+      } else {
+        applyTheme('Light');
+      }
+    });
+
+    function applyTheme(theme) {
+      let mode = theme;
+      if (mode === 'Auto') {
+        mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
+      }
+      const isDark = mode === 'Dark';
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      const accent = isDark ? '#E1EBFF' : '#3275F5';
+      document.documentElement.style.setProperty('--accent-blue', accent);
+    }
+
+    function updateTheme(theme) {
+      applyTheme(theme);
+    }
+
+    function updateAccentColor() {}
+
+    const navItems = document.querySelectorAll('.nav-item');
+    const sections = document.querySelectorAll('.view-section');
+    const pageTitle = document.getElementById('pageTitle');
+    const mainBtn = document.getElementById('mainActionBtn');
+    const mainIcon = document.getElementById('mainIcon');
+
+    let currentMode = 'stopwatch';
+
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        if (item.classList.contains('active')) return;
+
+        const currentActive = document.querySelector('.view-section.active');
+        if (currentActive) {
+          currentActive.classList.remove('active');
+          currentActive.classList.add('exit-left');
+          setTimeout(() => {
+            currentActive.classList.remove('exit-left');
+            // Hide completely after transition to avoid layout interference if needed
+            // But CSS handles opacity 0 and display flex/none logic might need check
+            // .view-section has display:none by default. 
+            // When active/exit-left it has display:flex.
+            // We need to make sure exit-left keeps display:flex until animation done.
+            // Actually, my CSS for .view-section says display:none.
+            // .view-section.exit-left says display:flex.
+            // So removing exit-left will make it display:none. Correct.
+          }, 300);
+        }
+
+        navItems.forEach(n => n.classList.remove('active'));
+        item.classList.add('active');
+
+        const targetId = item.dataset.target;
+        currentMode = targetId === 'view-stopwatch' ? 'stopwatch' : 'timer';
+
+        const targetSec = document.getElementById(targetId);
+        // Remove any leftover exit classes just in case
+        targetSec.classList.remove('exit-left');
+
+        // Force reflow to restart animation if it was just hidden
+        void targetSec.offsetWidth;
+
+        targetSec.classList.add('active');
+        pageTitle.textContent = item.dataset.title;
+
+        updateButtonState();
+      });
+    });
+
+    function updateButtonState() {
+      if (currentMode === 'stopwatch') {
+        mainIcon.className = swRunning ? 'icon-pause' : 'icon-play';
+      } else {
+        mainIcon.className = tmRunning ? 'icon-pause' : 'icon-play';
+      }
+    }
+
+    let swInterval, swStartTime, swElapsed = 0, swRunning = false;
+    const swDisplay = document.getElementById('stopwatchDisplay');
+
+    function formatStopwatch(ms) {
+      const m = Math.floor(ms / 60000).toString().padStart(2, '0');
+      const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
+      const cs = Math.floor((ms % 1000) / 10).toString().padStart(2, '0');
+      return `${m}:${s}.${cs}`;
+    }
+
+    // --- Wheel Picker Logic ---
+    function initWheel(id, max) {
+      const container = document.getElementById(id);
+      const itemHeight = 80;
+
+      // Create items
+      const fragment = document.createDocumentFragment();
+
+      for (let i = 0; i <= max; i++) {
+        const el = document.createElement('div');
+        el.className = 'wheel-item';
+        el.textContent = i.toString().padStart(2, '0');
+        el.dataset.val = i;
+        fragment.appendChild(el);
+      }
+      container.appendChild(fragment);
+
+      // Scroll Handler
+      container.addEventListener('scroll', () => {
+        updateActiveItem(container);
+      });
+
+      // Click to select
+      container.addEventListener('click', (e) => {
+        if (e.target.classList.contains('wheel-item')) {
+          const val = parseInt(e.target.dataset.val);
+          const targetScroll = val * itemHeight;
+          container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+        }
+      });
+
+      // Initial Active
+      updateActiveItem(container);
+    }
+
+    function updateActiveItem(container) {
+      const itemHeight = 80;
+      const scrollTop = container.scrollTop;
+      const index = Math.round(scrollTop / itemHeight);
+
+      const items = container.querySelectorAll('.wheel-item');
+      items.forEach((item, i) => {
+        if (i === index) {
+          item.classList.add('active');
+        } else {
+          item.classList.remove('active');
+        }
+      });
+    }
+
+    // Initialize Wheels
+    initWheel('wheel-hour', 23);
+    initWheel('wheel-minute', 59);
+    initWheel('wheel-second', 59);
+
+    // Set default to 00:05:00
+    setTimeout(() => {
+      const mContainer = document.getElementById('wheel-minute');
+      // 5 * 80
+      mContainer.scrollTo({ top: 400, behavior: 'instant' });
+    }, 100);
+
+    // --- Countdown Logic ---
+    let tmTotal = 0, tmRemaining = 0, tmInterval = null;
+    let tmRunning = false;
+
+    // --- Theme Sync Logic ---
+    async function initTheme() {
+      try {
+        const settings = await window.pywebview.api.get_settings();
+        if (settings && settings.Appearance) {
+          const themeMode = settings.Appearance.ThemeMode || 'Light';
+          applyTheme(themeMode);
+        } else {
+          applyTheme('Light');
+        }
+      } catch (e) {
+        applyTheme('Light');
+      }
+    }
+
+    window.addEventListener('pywebviewready', () => {
+      initTheme();
+    });
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      initTheme();
+    });
+
+    function updateTheme(mode) {
+      applyTheme(mode);
+    }
+
+    function updateAccentColor() {}
+
+    let tmState = 'picker'; // picker, running, paused, finished
+
+    const countdownUI = document.getElementById('countdownUI');
+    const bellUI = document.getElementById('bellUI');
+    const pickerUI = document.querySelector('.wheel-picker-container');
+
+    const circle = document.getElementById('progressCircle');
+    const radius = circle.r.baseVal.value;
+    const circumference = radius * 2 * Math.PI;
+    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+    circle.style.strokeDashoffset = circumference;
+
+    function setProgress(percent) {
+      const offset = circumference - percent / 100 * circumference;
+      circle.style.strokeDashoffset = offset;
+    }
+
+    function getWheelValue(id) {
+      const container = document.getElementById(id);
+      const itemHeight = 80;
+      const index = Math.round(container.scrollTop / itemHeight);
+      return index;
+    }
+
+    function formatTime(sec) {
+      const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+      const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+      const s = (sec % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function startCountdown() {
+      const h = getWheelValue('wheel-hour');
+      const m = getWheelValue('wheel-minute');
+      const s = getWheelValue('wheel-second');
+      const totalSec = h * 3600 + m * 60 + s;
+
+      if (totalSec === 0) return; // Don't start if 0
+
+      tmTotal = totalSec * 1000;
+      tmRemaining = tmTotal;
+
+      tmState = 'running';
+      pickerUI.style.opacity = '0';
+      pickerUI.style.pointerEvents = 'none';
+
+      countdownUI.classList.add('active');
+      document.getElementById('totalTimeDisplay').textContent = `共${totalSec}秒`;
+
+      updateCountdownUI();
+
+      updateCountdownUI();
+
+      tmInterval = setInterval(() => {
+        tmRemaining -= 100;
+        if (tmRemaining <= 0) {
+          finishCountdown();
+        } else {
+          updateCountdownUI();
+        }
+      }, 100);
+
+      updateButtonState();
+      if (bridge && bridge.set_running) bridge.set_running(true);
+    }
+
+    function updateCountdownUI() {
+      const sec = Math.ceil(tmRemaining / 1000);
+      document.getElementById('timeLeftDisplay').textContent = formatTime(sec);
+      const percent = (tmRemaining / tmTotal) * 100;
+      setProgress(percent);
+    }
+
+    function pauseCountdown() {
+      clearInterval(tmInterval);
+      tmState = 'paused';
+      updateButtonState();
+      if (bridge && bridge.set_running) bridge.set_running(false);
+    }
+
+    function resumeCountdown() {
+      tmState = 'running';
+      tmInterval = setInterval(() => {
+        tmRemaining -= 100;
+        if (tmRemaining <= 0) {
+          finishCountdown();
+        } else {
+          updateCountdownUI();
+        }
+      }, 100);
+      updateButtonState();
+      if (bridge && bridge.set_running) bridge.set_running(true);
+    }
+
+    function finishCountdown() {
+      clearInterval(tmInterval);
+      tmRemaining = 0;
+      updateCountdownUI();
+      tmState = 'finished';
+
+      countdownUI.classList.remove('active');
+      bellUI.style.display = 'flex';
+
+      if (window.pywebview && window.pywebview.api.get_assets_path) {
+        window.pywebview.api.get_assets_path().then(path => {
+          const audio = new Audio('file:///' + path.replace(/\\/g, '/'));
+          audio.play().catch(e => console.error('Audio play error:', e));
+        });
+      }
+
+      if (bridge && bridge.set_running) bridge.set_running(false);
+      updateButtonState();
+    }
+
+    function resetCountdown() {
+      clearInterval(tmInterval);
+      tmState = 'picker';
+
+      bellUI.style.display = 'none';
+      countdownUI.classList.remove('active');
+      pickerUI.style.opacity = '1';
+      pickerUI.style.pointerEvents = 'auto';
+
+      if (bridge && bridge.set_running) bridge.set_running(false);
+      updateButtonState();
+    }
+
+    mainBtn.addEventListener('click', () => {
+      if (currentMode === 'stopwatch') {
+        if (!swRunning) {
+          swRunning = true;
+          swStartTime = Date.now() - swElapsed;
+          swInterval = setInterval(() => {
+            swElapsed = Date.now() - swStartTime;
+            swDisplay.textContent = formatStopwatch(swElapsed);
+          }, 10);
+          if (window.pywebview && window.pywebview.api.set_running) window.pywebview.api.set_running(true);
+        } else {
+          swRunning = false;
+          clearInterval(swInterval);
+          if (window.pywebview && window.pywebview.api.set_running) window.pywebview.api.set_running(false);
+        }
+      } else {
+        // Timer Logic
+        if (tmState === 'picker') {
+          startCountdown();
+        } else if (tmState === 'running') {
+          pauseCountdown();
+        } else if (tmState === 'paused') {
+          resumeCountdown();
+        } else if (tmState === 'finished') {
+          resetCountdown();
+        }
+      }
+      updateButtonState();
+    });
+
+    // Override updateButtonState to handle Timer states
+    function updateButtonState() {
+      if (currentMode === 'stopwatch') {
+        mainBtn.innerHTML = swRunning ? '<div class="icon-pause"></div>' : '<div class="icon-play"></div>';
+      } else {
+        if (tmState === 'running') {
+          mainBtn.innerHTML = '<div class="icon-pause"></div>';
+        } else if (tmState === 'finished') {
+          mainBtn.innerHTML = '<div class="icon-return"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h11a4 4 0 0 1 4 4v5"></path></svg></div>';
+        } else {
+          mainBtn.innerHTML = '<div class="icon-play"></div>';
+        }
+      }
+    }
+
+  </script>
+</body>
+
+</html>

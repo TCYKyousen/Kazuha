@@ -1,14 +1,29 @@
 import os
 import sys
 import subprocess
+import threading
 from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtCore import Signal
 from plugins.interface import AssistantPlugin
 from ppt_assistant.core.config import SETTINGS_PATH
+from ppt_assistant.core.timer_manager import TimerManager
 
 class TimerPlugin(AssistantPlugin):
+    start_requested = Signal(int)
+    pause_requested = Signal()
+    resume_requested = Signal()
+    stop_requested = Signal()
+    finish_requested = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.process = None
+        self._timer_manager = TimerManager()
+        self.start_requested.connect(self._timer_manager.start)
+        self.pause_requested.connect(self._timer_manager.pause)
+        self.resume_requested.connect(self._timer_manager.resume)
+        self.stop_requested.connect(self._timer_manager.stop)
+        self.finish_requested.connect(self._timer_manager.finish)
 
     def get_name(self):
         return "计时器"
@@ -45,6 +60,8 @@ class TimerPlugin(AssistantPlugin):
         env = os.environ.copy()
         env["SETTINGS_PATH"] = SETTINGS_PATH
         env["ASSETS_PATH"] = assets_path
+        env["TIMER_REMAINING"] = str(self._timer_manager.remaining_seconds)
+        env["TIMER_IS_RUNNING"] = "true" if self._timer_manager.is_running else "false"
 
         if getattr(sys, "frozen", False):
             cmd = [
@@ -68,7 +85,45 @@ class TimerPlugin(AssistantPlugin):
                 "true",
             ]
 
-        self.process = subprocess.Popen(cmd, env=env)
+        self.process = subprocess.Popen(
+            cmd, 
+            env=env, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8'
+        )
+        
+        # Start a thread to read stdout and sync with TimerManager
+        threading.Thread(target=self._read_stdout, args=(self.process,), daemon=True).start()
+
+    def _read_stdout(self, process):
+        while process.poll() is None:
+            line = process.stdout.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith("TIMER_START:"):
+                try:
+                    seconds = int(line.split(":")[1])
+                    self.start_requested.emit(seconds)
+                except:
+                    pass
+            elif line == "TIMER_PAUSE":
+                self.pause_requested.emit()
+            elif line == "TIMER_RESUME":
+                self.resume_requested.emit()
+            elif line == "TIMER_STOP":
+                self.stop_requested.emit()
+            elif line == "TIMER_FINISH":
+                self.finish_requested.emit()
+        
+        # When process exits, we no longer stop the timer logic here 
+        # as per user request to keep timer running even if window is closed.
+        pass
 
     def terminate(self):
         if self.process and self.process.poll() is None:

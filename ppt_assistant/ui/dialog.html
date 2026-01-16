@@ -254,7 +254,8 @@
         "dialog.multiInstance.cancel": "同时退出",
         "testDialog.title": "测试对话框",
         "testDialog.confirm": "我知道了",
-        "testDialog.cancel": "关闭"
+        "testDialog.cancel": "关闭",
+        "general.devWatermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）"
       },
       "zh-TW": {
         "dialog.generic.ok": "確認",
@@ -268,7 +269,8 @@
         "dialog.multiInstance.cancel": "同時退出",
         "testDialog.title": "測試對話框",
         "testDialog.confirm": "我知道了",
-        "testDialog.cancel": "關閉"
+        "testDialog.cancel": "關閉",
+        "general.devWatermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）"
       },
       "ja-JP": {
         "dialog.generic.ok": "確認",
@@ -282,7 +284,8 @@
         "dialog.multiInstance.cancel": "両方終了する",
         "testDialog.title": "テストダイアログ",
         "testDialog.confirm": "了解しました",
-        "testDialog.cancel": "閉じる"
+        "testDialog.cancel": "閉じる",
+        "general.devWatermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）"
       },
       "en-US": {
         "dialog.generic.ok": "OK",
@@ -296,7 +299,8 @@
         "dialog.multiInstance.cancel": "Exit both",
         "testDialog.title": "Test dialog",
         "testDialog.confirm": "Got it",
-        "testDialog.cancel": "Close"
+        "testDialog.cancel": "Close",
+        "general.devWatermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})"
       }
     };
 
@@ -459,7 +463,8 @@
           if (wm && version) {
             const parts = String(version).trim().split(".");
             if (parts.length >= 2 && parts[parts.length - 1] === "1") {
-              wm.textContent = `开发中版本/技术预览版本\n不保证最终品质 （${version}）`;
+              const tmpl = getText("general.devWatermark") || "开发中版本/技术预览版本\n不保证最终品质 （{version}）";
+              wm.textContent = tmpl.replace("{version}", version);
               wm.style.display = "block";
             } else {
               wm.style.display = "none";

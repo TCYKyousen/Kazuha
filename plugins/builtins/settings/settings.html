@@ -445,7 +445,7 @@
       align-items: center;
       gap: 16px;
       padding: 12px 0;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       background: transparent;
       border: none;
     }
@@ -507,6 +507,33 @@
       font-size: 20px;
       font-weight: 600;
       color: var(--text-primary);
+    }
+
+    .update-carbon-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      background: rgba(52, 199, 89, 0.1);
+      border: 1px solid rgba(52, 199, 89, 0.18);
+      border-radius: 8px;
+      color: #34c759;
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+
+    [data-theme="dark"] .update-carbon-notice {
+      background: rgba(52, 199, 89, 0.06);
+      border-color: rgba(52, 199, 89, 0.12);
+      color: rgba(120, 255, 170, 0.95);
+    }
+
+    .update-carbon-notice .notice-icon {
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      flex-shrink: 0;
     }
 
     /* Custom Scrollbar */
@@ -751,6 +778,42 @@
       margin-bottom: 8px;
     }
 
+    /* Shine Effect */
+    @keyframes shine-flow {
+      0% {
+        background-position: 200% center;
+      }
+      100% {
+        background-position: -200% center;
+      }
+    }
+
+    .shine-effect {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .shine-effect::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        60deg,
+        transparent 20%,
+        rgba(255, 255, 255, 0.2) 40%,
+        rgba(255, 255, 255, 0.4) 50%,
+        rgba(255, 255, 255, 0.2) 60%,
+        transparent 80%
+      );
+      background-size: 200% auto;
+      pointer-events: none;
+      animation: shine-flow 0.6s ease-out forwards;
+      z-index: 1000;
+    }
+
     .toolbar-preview-bar {
       display: inline-flex;
       align-items: center;
@@ -848,6 +911,69 @@
       mask-image: url('../../../icons/Minimize.svg');
       -webkit-mask-image: url('../../../icons/Minimize.svg');
       background-color: #FF453A;
+    }
+
+    .toolbar-preview-hero {
+      margin: -32px -48px 24px;
+      padding: 44px 48px 52px;
+      background: linear-gradient(to bottom, var(--bg-app), var(--bg-app) 65%, var(--bg-surface));
+      border-radius: 16px 16px 0 0;
+      overflow: hidden;
+    }
+
+    .toolbar-preview-hero-inner {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Layout Selector Styles - Deleted */
+    .layout-selector {
+      display: none;
+    }
+
+    .layout-option {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 12px;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      background: var(--bg-app);
+    }
+
+    .layout-option:hover {
+      background: var(--item-hover);
+    }
+
+    .layout-option.active {
+      background: var(--item-hover);
+      border-color: var(--accent-blue);
+    }
+
+    .layout-preview {
+      width: 100%;
+      height: 60px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+
+    .layout-svg {
+      width: 100%;
+      height: 100%;
+      color: var(--text-secondary);
+    }
+
+    .layout-label {
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 500;
     }
 
     .toolbar-preview-btn-label {
@@ -1136,6 +1262,46 @@
       transform: translateX(20px);
     }
 
+    .styled-select {
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--divider);
+      padding: 6px 32px 6px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23888"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 18px;
+      cursor: pointer;
+      min-width: 140px;
+      transition: all 0.2s;
+    }
+    
+    .styled-select:hover {
+        background-color: var(--item-hover);
+    }
+
+    [data-theme="dark"] .styled-select {
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ccc"><path d="M7 10l5 5 5-5z"/></svg>');
+    }
+
+    .styled-input {
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        border: 1px solid var(--divider);
+        padding: 6px 8px;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 13px;
+        outline: none;
+        width: 100px;
+    }
+
     .theme-select {
       display: flex;
       background: var(--card-bg);
@@ -1185,7 +1351,12 @@
         radial-gradient(circle at 80% 80%, var(--hyperos-g2) 0%, transparent 40%),
         radial-gradient(circle at 20% 80%, var(--hyperos-g3) 0%, transparent 40%),
         radial-gradient(circle at 80% 20%, var(--hyperos-g4) 0%, transparent 40%),
-        radial-gradient(circle at 50% 50%, var(--hyperos-g5) 0%, transparent 50%);
+        radial-gradient(circle at 50% 50%, var(--hyperos-g5) 0%, transparent 50%),
+        radial-gradient(circle at 50% 12%, var(--hyperos-g2) 0%, transparent 42%),
+        radial-gradient(circle at 12% 50%, var(--hyperos-g4) 0%, transparent 42%),
+        radial-gradient(circle at 88% 50%, var(--hyperos-g1) 0%, transparent 42%),
+        radial-gradient(circle at 50% 88%, var(--hyperos-g3) 0%, transparent 42%),
+        radial-gradient(circle at 70% 30%, var(--hyperos-g5) 0%, transparent 46%);
       filter: blur(60px);
       animation: hyperos-flow 25s infinite linear;
       z-index: 0;
@@ -1434,40 +1605,8 @@
       <div class="page-title" id="section-title" data-i18n="section.main">主程序</div>
 
       <div class="section active" id="section-main">
-        <div class="group-title" data-i18n="group.appearance">外观</div>
+        <div class="group-title" data-i18n="group.language">语言</div>
         <div class="settings-group">
-          <div class="settings-item">
-            <div class="item-info">
-              <span class="item-label" data-i18n="appearance.mode.label">外观模式</span>
-              <span class="item-desc" data-i18n="appearance.mode.desc">调整应用程序的显示主题</span>
-            </div>
-            <div class="theme-select">
-              <div class="theme-option" id="theme-Light" onclick="setTheme('Light')" data-i18n="appearance.mode.light">
-                浅色</div>
-              <div class="theme-option" id="theme-Dark" onclick="setTheme('Dark')" data-i18n="appearance.mode.dark">深色
-              </div>
-              <div class="theme-option" id="theme-Auto" onclick="setTheme('Auto')" data-i18n="appearance.mode.auto">跟随系统
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="group-title" data-i18n="group.main">主程序</div>
-        <div class="settings-group">
-          <div class="settings-item" onclick="toggleSwitch('General', 'RunAtStartup')">
-            <div class="item-info">
-              <span class="item-label" data-i18n="general.runAtStartup.label">开机自启</span>
-            </div>
-            <div class="switch" id="sw-General-RunAtStartup"></div>
-          </div>
-          <div class="settings-item" onclick="toggleSwitch('General', 'AutoShowOverlay')">
-            <div class="item-info">
-              <span class="item-label" data-i18n="general.autoShowOverlay.label">自动显示悬浮窗</span>
-              <span class="item-desc" data-i18n="general.autoShowOverlay.desc">检测到 PPT 放映时自动显示工具栏</span>
-            </div>
-            <div class="switch" id="sw-General-AutoShowOverlay"></div>
-          </div>
           <div class="settings-item" id="item-language" style="flex-direction: column; align-items: stretch; gap: 0;">
             <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
               <div class="item-info">
@@ -1493,11 +1632,70 @@
             </div>
           </div>
         </div>
+
+        <div class="group-title" data-i18n="group.appearance">外观</div>
+        <div class="settings-group">
+          <div class="settings-item">
+            <div class="item-info">
+              <span class="item-label" data-i18n="appearance.mode.label">外观模式</span>
+              <span class="item-desc" data-i18n="appearance.mode.desc">调整应用程序的显示主题</span>
+            </div>
+            <div class="theme-select">
+              <div class="theme-option" id="theme-Light" onclick="setTheme('Light')" data-i18n="appearance.mode.light">
+                浅色</div>
+              <div class="theme-option" id="theme-Dark" onclick="setTheme('Dark')" data-i18n="appearance.mode.dark">深色
+              </div>
+              <div class="theme-option" id="theme-Auto" onclick="setTheme('Auto')" data-i18n="appearance.mode.auto">跟随系统
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="group-title" data-i18n="group.startup">启动</div>
+        <div class="settings-group">
+          <div class="settings-item" onclick="toggleSwitch('General', 'RunAtStartup')">
+            <div class="item-info">
+              <span class="item-label" data-i18n="general.runAtStartup.label">开机自启</span>
+            </div>
+            <div class="switch" id="sw-General-RunAtStartup"></div>
+          </div>
+          <div class="settings-item" style="flex-direction: column; align-items: stretch; gap: 12px; padding-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="item-info">
+                  <span class="item-label" data-i18n="general.splashMode.label">启动画面</span>
+                </div>
+                <select id="sel-General-SplashMode" class="styled-select" onchange="setSplashMode(this.value)">
+                    <option value="Always" data-i18n="general.splashMode.always">每次都显示</option>
+                    <option value="HideOnAutoStart" data-i18n="general.splashMode.hideOnAutoStart">仅开机启动时不显示</option>
+                    <option value="TimeRange" data-i18n="general.splashMode.timeRange">特定时间段内显示</option>
+                    <option value="Never" data-i18n="general.splashMode.never">不显示</option>
+                </select>
+            </div>
+            <div id="splash-time-range" style="display: none; align-items: center; gap: 12px; padding-left: 0; justify-content: flex-end;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span data-i18n="general.splashMode.timeRange.start" style="font-size: 13px; color: var(--text-secondary);">开始</span>
+                    <input type="time" id="splash-start-time" class="styled-input" onchange="setSplashTime('Start', this.value)">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span data-i18n="general.splashMode.timeRange.end" style="font-size: 13px; color: var(--text-secondary);">结束</span>
+                    <input type="time" id="splash-end-time" class="styled-input" onchange="setSplashTime('End', this.value)">
+                </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="section" id="section-overlay">
-        <div class="group-title" data-i18n="group.overlay">顶层窗口</div>
+        <div class="group-title" data-i18n="group.presentation">放映</div>
         <div class="settings-group">
+          <div class="settings-item" onclick="toggleSwitch('General', 'AutoShowOverlay')">
+            <div class="item-info">
+              <span class="item-label" data-i18n="general.autoShowOverlay.label">自动显示悬浮窗</span>
+              <span class="item-desc" data-i18n="general.autoShowOverlay.desc">检测到 PPT 放映时自动显示工具栏</span>
+            </div>
+            <div class="switch" id="sw-General-AutoShowOverlay"></div>
+          </div>
           <div class="settings-item" onclick="toggleSwitch('PPT', 'AutoHandleInk')">
             <div class="item-info">
               <span class="item-label" data-i18n="interaction.autoHandleInk.label">自动处理墨迹</span>
@@ -1505,6 +1703,10 @@
             </div>
             <div class="switch" id="sw-PPT-AutoHandleInk"></div>
           </div>
+        </div>
+
+        <div class="group-title" data-i18n="group.overlayUi">顶层窗口</div>
+        <div class="settings-group">
           <div class="settings-item" onclick="toggleSwitch('Overlay', 'ShowStatusBar')">
             <div class="item-info">
               <span class="item-label" data-i18n="interaction.showStatusBar.label">顶部状态栏</span>
@@ -1516,13 +1718,13 @@
       </div>
 
       <div class="section" id="section-plugins">
-        <div class="group-title" data-i18n="interaction.toolbar.preview.label">工具栏预览</div>
-        <div class="settings-group"
-          style="padding: 32px; display: flex; justify-content: center; background: var(--bg-app); border: 1px dashed var(--divider); margin-bottom: 24px;">
-          <div id="toolbar-preview" class="toolbar-preview-bar"></div>
+        <div class="toolbar-preview-hero">
+          <div class="toolbar-preview-hero-inner">
+            <div id="toolbar-preview" class="toolbar-preview-bar"></div>
+          </div>
         </div>
 
-        <div class="group-title" data-i18n="group.plugins">插件</div>
+        <div class="group-title" data-i18n="group.toolbar.display">显示</div>
         <div class="settings-group">
           <div class="settings-item" onclick="toggleSwitch('Toolbar', 'ShowUndoRedo')">
             <div class="item-info">
@@ -1536,6 +1738,36 @@
               <span class="item-desc" data-i18n="interaction.showToolbarText.desc">在工具栏图标下方显示功能名称</span>
             </div>
             <div class="switch" id="sw-Toolbar-ShowToolbarText"></div>
+          </div>
+        </div>
+
+        <div class="group-title" data-i18n="interaction.toolbar.layout.label">工具栏布局</div>
+        <div class="settings-group">
+          <div class="settings-item" style="padding: 16px;">
+            <div class="layout-selector">
+              <div class="layout-option" id="layout-Horizontal" onclick="setToolbarLayout('Horizontal')">
+                <div class="layout-preview">
+                  <svg viewBox="0 0 120 60" class="layout-svg" fill="none">
+                    <rect x="0" y="0" width="120" height="60" rx="4" fill="var(--bg-surface)" stroke="var(--divider)" />
+                    <rect x="40" y="45" width="40" height="8" rx="4" fill="currentColor" opacity="0.2" />
+                    <rect x="10" y="45" width="20" height="8" rx="4" fill="var(--accent-blue)" />
+                    <rect x="90" y="45" width="20" height="8" rx="4" fill="var(--accent-blue)" />
+                  </svg>
+                </div>
+                <div class="layout-label" data-i18n="interaction.toolbar.layout.horizontal">水平排列</div>
+              </div>
+              <div class="layout-option" id="layout-VerticalSplit" onclick="setToolbarLayout('VerticalSplit')">
+                <div class="layout-preview">
+                  <svg viewBox="0 0 120 60" class="layout-svg" fill="none">
+                    <rect x="0" y="0" width="120" height="60" rx="4" fill="var(--bg-surface)" stroke="var(--divider)" />
+                    <rect x="40" y="45" width="40" height="8" rx="4" fill="currentColor" opacity="0.2" />
+                    <rect x="10" y="15" width="8" height="30" rx="4" fill="var(--accent-blue)" />
+                    <rect x="102" y="15" width="8" height="30" rx="4" fill="var(--accent-blue)" />
+                  </svg>
+                </div>
+                <div class="layout-label" data-i18n="interaction.toolbar.layout.vertical">两侧竖向</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1654,6 +1886,15 @@
             </div>
           </div>
 
+          <div class="update-carbon-notice" id="update-carbon-notice">
+            <svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 20A7 7 0 0 1 4 13C4 8 11 4 20 4c0 9-4 16-9 16Z"></path>
+              <path d="M12 20c0-4 3.5-7.5 8-8"></path>
+            </svg>
+            <span data-i18n="update.status.hint">Kazuha 的更新皆在为减少碳排放做出行动</span>
+          </div>
+
           <!-- Pivot Tabs -->
           <div class="pivot-container">
             <div class="pivot-item active" data-pivot="changelog" onclick="UpdateManager.switchTab('changelog')"
@@ -1747,21 +1988,23 @@
 <script>
   const I18N = {
     "zh-CN": {
-      "nav.main": "主程序",
-      "nav.overlay": "顶层窗口",
+      "nav.main": "常规",
+      "nav.overlay": "放映",
       "nav.about": "关于",
-      "nav.plugins": "插件",
+      "nav.plugins": "工具栏",
       "nav.debug": "调试",
       "nav.back": "返回",
-      "section.main": "主程序",
-      "section.overlay": "顶层窗口",
-      "section.plugins": "插件",
+      "section.main": "常规",
+      "section.overlay": "放映",
+      "section.plugins": "工具栏",
       "section.about": "关于",
       "section.debug": "调试",
+      "group.language": "语言",
       "group.appearance": "外观",
-      "group.main": "主程序",
-      "group.overlay": "顶层窗口",
-      "group.plugins": "插件",
+      "group.startup": "启动",
+      "group.presentation": "放映",
+      "group.overlayUi": "顶层窗口",
+      "group.toolbar.display": "工具栏显示",
       "group.debugOptions": "调试选项",
       "appearance.mode.label": "外观模式",
       "appearance.mode.desc": "调整应用程序的显示主题",
@@ -1769,6 +2012,14 @@
       "appearance.mode.dark": "深色",
       "appearance.mode.auto": "跟随系统",
       "general.runAtStartup.label": "开机自启",
+      "general.splashMode.label": "启动画面",
+      "general.splashMode.always": "每次都显示",
+      "general.splashMode.never": "不显示",
+      "general.splashMode.hideOnAutoStart": "仅开机启动时不显示",
+      "general.splashMode.timeRange": "特定时间段内显示",
+      "general.splashMode.timeRange.start": "开始时间",
+      "general.splashMode.timeRange.end": "结束时间",
+      "general.devWatermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）",
       "general.autoShowOverlay.label": "自动显示悬浮窗",
       "general.autoShowOverlay.desc": "检测到 PPT 放映时自动显示工具栏",
       "general.language.label": "界面语言",
@@ -1780,6 +2031,12 @@
       "language.en-US": "English",
       "interaction.autoHandleInk.label": "自动处理墨迹",
       "interaction.autoHandleInk.desc": "退出放映时自动处理\"是否保留墨迹\"",
+      "interaction.showToolbarText.label": "显示按钮文字",
+      "interaction.showToolbarText.desc": "在工具栏按钮下方显示文字标签",
+      "interaction.toolbarLayout.label": "工具栏布局",
+      "interaction.toolbarLayout.desc": "选择工具栏和翻页按钮的排列方式",
+      "interaction.layout.horizontal": "水平排列",
+      "interaction.layout.verticalSplit": "两侧竖向",
       "interaction.showStatusBar.label": "顶部状态栏",
       "interaction.showStatusBar.desc": "在悬浮窗顶部显示时间与状态",
       "interaction.showUndoRedo.label": "显示撤销/重做",
@@ -1787,6 +2044,9 @@
       "interaction.showUndoRedo.redo": "重做",
       "interaction.showToolbarText.label": "工具栏文字",
       "interaction.showToolbarText.desc": "在工具栏图标下方显示功能名称",
+      "interaction.toolbar.layout.label": "工具栏布局",
+      "interaction.toolbar.layout.horizontal": "水平排列",
+      "interaction.toolbar.layout.vertical": "两侧竖向",
       "interaction.toolbar.customization.label": "工具栏固定项",
       "interaction.toolbar.customization.desc": "预览并管理工具栏上的快速启动项",
       "interaction.toolbar.preview.label": "工具栏预览",
@@ -1802,6 +2062,7 @@
       "update.status.latest": "你使用的是最新版本",
       "update.status.checking": "正在检查更新...",
       "update.status.error": "检查更新失败",
+      "update.status.hint": "Kazuha 的更新皆在为减少碳排放做出行动",
       "update.lastCheck": "上次检查时间",
       "update.checkNow": "检查更新",
       "update.pivot.changelog": "更新日志",
@@ -1836,21 +2097,23 @@
       "debug.triggerCrash.desc": "手动触发一个 RuntimeError 以测试崩溃处理器的表现"
     },
     "zh-TW": {
-      "nav.main": "主程式",
-      "nav.overlay": "頂層效果視窗",
+      "nav.main": "一般",
+      "nav.overlay": "放映",
       "nav.about": "關於",
-      "nav.plugins": "插件",
+      "nav.plugins": "工具列",
       "nav.debug": "偵錯",
       "nav.back": "返回",
-      "section.main": "主程式",
-      "section.overlay": "頂層效果視窗",
-      "section.plugins": "插件",
+      "section.main": "一般",
+      "section.overlay": "放映",
+      "section.plugins": "工具列",
       "section.about": "關於",
       "section.debug": "偵錯",
+      "group.language": "語言",
       "group.appearance": "外觀",
-      "group.main": "主程式",
-      "group.overlay": "頂層效果視窗",
-      "group.plugins": "插件",
+      "group.startup": "啟動",
+      "group.presentation": "放映",
+      "group.overlayUi": "頂層視窗",
+      "group.toolbar.display": "工具列顯示",
       "group.debugOptions": "偵錯選項",
       "appearance.mode.label": "外觀模式",
       "appearance.mode.desc": "調整應用程式的顯示主題",
@@ -1858,6 +2121,14 @@
       "appearance.mode.dark": "深色",
       "appearance.mode.auto": "跟隨系統",
       "general.runAtStartup.label": "開機自啟",
+      "general.splashMode.label": "啟動畫面",
+      "general.splashMode.always": "每次都顯示",
+      "general.splashMode.never": "不顯示",
+      "general.splashMode.hideOnAutoStart": "僅開機啟動時不顯示",
+      "general.splashMode.timeRange": "特定時段內顯示",
+      "general.splashMode.timeRange.start": "開始時間",
+      "general.splashMode.timeRange.end": "結束時間",
+      "general.devWatermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）",
       "general.autoShowOverlay.label": "自動顯示懸浮窗",
       "general.autoShowOverlay.desc": "偵測到 PPT 播放時自動顯示工具列",
       "general.language.label": "介面語言",
@@ -1869,6 +2140,12 @@
       "language.en-US": "English",
       "interaction.autoHandleInk.label": "自動處理墨跡",
       "interaction.autoHandleInk.desc": "結束播放時自動處理「是否保留墨跡」",
+      "interaction.showToolbarText.label": "顯示按鈕文字",
+      "interaction.showToolbarText.desc": "在工具列按鈕下方顯示文字標籤",
+      "interaction.toolbarLayout.label": "工具列佈局",
+      "interaction.toolbarLayout.desc": "選擇工具列和翻頁按鈕的排列方式",
+      "interaction.layout.horizontal": "水平排列",
+      "interaction.layout.verticalSplit": "兩側豎向",
       "interaction.showStatusBar.label": "頂部狀態列",
       "interaction.showStatusBar.desc": "在懸浮窗頂部顯示時間與狀態",
       "interaction.showUndoRedo.label": "顯示復原/重做",
@@ -1889,6 +2166,7 @@
       "update.status.latest": "你使用的是最新版本",
       "update.status.checking": "正在檢查更新...",
       "update.status.error": "檢查更新失敗",
+      "update.status.hint": "Kazuha 的更新皆在為減少碳排放做出行動",
       "update.lastCheck": "上次檢查時間",
       "update.checkNow": "檢查更新",
       "update.pivot.changelog": "更新日誌",
@@ -1920,21 +2198,23 @@
       "debug.triggerCrash.desc": "手動觸發一個 RuntimeError 以測試當機處理器的表現"
     },
     "ja-JP": {
-      "nav.main": "メインプログラム",
-      "nav.overlay": "トップレベルエフェクトウィンドウ",
+      "nav.main": "一般",
+      "nav.overlay": "プレゼン",
       "nav.about": "情報",
-      "nav.plugins": "プラグイン",
+      "nav.plugins": "ツールバー",
       "nav.debug": "デバッグ",
       "nav.back": "戻る",
-      "section.main": "メインプログラム",
-      "section.overlay": "トップレベルエフェクトウィンドウ",
-      "section.plugins": "プラグイン",
+      "section.main": "一般",
+      "section.overlay": "プレゼン",
+      "section.plugins": "ツールバー",
       "section.about": "情報",
       "section.debug": "デバッグ",
+      "group.language": "言語",
       "group.appearance": "外観",
-      "group.main": "メインプログラム",
-      "group.overlay": "トップレベルエフェクトウィンドウ",
-      "group.plugins": "プラグイン",
+      "group.startup": "起動",
+      "group.presentation": "プレゼン",
+      "group.overlayUi": "オーバーレイ",
+      "group.toolbar.display": "ツールバー表示",
       "group.debugOptions": "デバッグオプション",
       "appearance.mode.label": "テーマモード",
       "appearance.mode.desc": "アプリの表示テーマを切り替えます",
@@ -1942,6 +2222,14 @@
       "appearance.mode.dark": "ダーク",
       "appearance.mode.auto": "システムに合わせる",
       "general.runAtStartup.label": "起動時に自動実行",
+      "general.splashMode.label": "スプラッシュ画面",
+      "general.splashMode.always": "常に表示",
+      "general.splashMode.never": "表示しない",
+      "general.splashMode.hideOnAutoStart": "自動起動時は非表示",
+      "general.splashMode.timeRange": "特定の時間帯のみ表示",
+      "general.splashMode.timeRange.start": "開始時刻",
+      "general.splashMode.timeRange.end": "終了時刻",
+      "general.devWatermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）",
       "general.autoShowOverlay.label": "オーバーレイを自動表示",
       "general.autoShowOverlay.desc": "PPT スライドショーを検出したらツールバーを自動表示します",
       "general.language.label": "表示言語",
@@ -1953,9 +2241,18 @@
       "language.en-US": "英語",
       "interaction.autoHandleInk.label": "インクを自動処理",
       "interaction.autoHandleInk.desc": "スライドショー終了時に「インクを保持するか」を自動処理します",
+      "interaction.showToolbarText.label": "ボタンテキストを表示",
+      "interaction.showToolbarText.desc": "ツールバーボタンの下にテキストラベルを表示します",
+      "interaction.toolbarLayout.label": "ツールバーのレイアウト",
+      "interaction.toolbarLayout.desc": "ツールバーとページめくりボタンの配置を選択します",
+      "interaction.layout.horizontal": "水平配置",
+      "interaction.layout.verticalSplit": "両側縦向き",
       "interaction.showStatusBar.label": "上部ステータスバー",
       "interaction.showStatusBar.desc": "オーバーレイ上部に時間と状態を表示します",
       "interaction.showUndoRedo.label": "元に戻す/やり直しを表示",
+      "interaction.toolbar.layout.label": "ツールバーレイアウト",
+      "interaction.toolbar.layout.horizontal": "水平配置",
+      "interaction.toolbar.layout.vertical": "両側垂直",
       "interaction.toolbar.customization.label": "ツールバー固定プログラム",
       "interaction.toolbar.customization.desc": "ツールバーのクイック起動アプリを管理します",
       "interaction.toolbar.preview.label": "ツールバープレビュー",
@@ -1972,6 +2269,7 @@
       "update.status.latest": "最新バージョンを使用しています",
       "update.status.checking": "更新を確認中...",
       "update.status.error": "更新の確認に失敗しました",
+      "update.status.hint": "Kazuha の更新は、CO₂排出量削減に向けた取り組みです",
       "update.lastCheck": "最終確認日時",
       "update.checkNow": "今すぐ確認",
       "update.pivot.changelog": "変更履歴",
@@ -2003,21 +2301,23 @@
       "debug.triggerCrash.desc": "RuntimeError を発生させてクラッシュハンドラをテストします"
     },
     "en-US": {
-      "nav.main": "Main Program",
-      "nav.overlay": "Top-level Effect Window",
+      "nav.main": "General",
+      "nav.overlay": "Presentation",
       "nav.about": "About",
-      "nav.plugins": "Plugins",
+      "nav.plugins": "Toolbar",
       "nav.debug": "Debug",
       "nav.back": "Back",
-      "section.main": "Main Program",
-      "section.overlay": "Top-level Effect Window",
-      "section.plugins": "Plugins",
+      "section.main": "General",
+      "section.overlay": "Presentation",
+      "section.plugins": "Toolbar",
       "section.about": "About",
       "section.debug": "Debug",
+      "group.language": "Language",
       "group.appearance": "Appearance",
-      "group.main": "Main Program",
-      "group.overlay": "Top-level Effect Window",
-      "group.plugins": "Plugins",
+      "group.startup": "Startup",
+      "group.presentation": "Presentation",
+      "group.overlayUi": "Overlay",
+      "group.toolbar.display": "Toolbar",
       "group.debugOptions": "Debug options",
       "appearance.mode.label": "Theme mode",
       "appearance.mode.desc": "Adjust the display theme of the application",
@@ -2025,16 +2325,31 @@
       "appearance.mode.dark": "Dark",
       "appearance.mode.auto": "Follow system",
       "general.runAtStartup.label": "Run at startup",
+      "general.splashMode.label": "Startup Splash",
+      "general.splashMode.always": "Always show",
+      "general.splashMode.never": "Never show",
+      "general.splashMode.hideOnAutoStart": "Hide on auto-start",
+      "general.splashMode.timeRange": "Show during time range",
+      "general.splashMode.timeRange.start": "Start Time",
+      "general.splashMode.timeRange.end": "End Time",
+      "general.devWatermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})",
       "general.autoShowOverlay.label": "Auto show overlay",
       "general.autoShowOverlay.desc": "Automatically show toolbar when PPT slideshow is detected",
       "general.language.label": "Interface language",
       "general.language.desc": "Restart is required for the language to apply everywhere",
+      "general.language.warning": "The selected language may be incomplete or misaligned. For the best experience, Simplified Chinese is recommended.",
       "language.zh-CN": "Simplified Chinese",
       "language.zh-TW": "Traditional Chinese",
       "language.ja-JP": "Japanese",
       "language.en-US": "English",
       "interaction.autoHandleInk.label": "Auto handle ink",
       "interaction.autoHandleInk.desc": "Automatically handle \"keep ink\" prompt when slideshow ends",
+      "interaction.showToolbarText.label": "Show button text",
+      "interaction.showToolbarText.desc": "Show text labels below toolbar buttons",
+      "interaction.toolbarLayout.label": "Toolbar layout",
+      "interaction.toolbarLayout.desc": "Choose how the toolbar and page flippers are arranged",
+      "interaction.layout.horizontal": "Horizontal",
+      "interaction.layout.verticalSplit": "Vertical Split",
       "interaction.showStatusBar.label": "Top status bar",
       "interaction.showStatusBar.desc": "Show time and status at top of overlay",
       "interaction.showUndoRedo.label": "Show Undo/Redo",
@@ -2054,6 +2369,7 @@
       "update.status.latest": "You are using the latest version",
       "update.status.checking": "Checking for updates...",
       "update.status.error": "Update check failed",
+      "update.status.hint": "Kazuha updates are part of our effort to reduce carbon emissions.",
       "update.lastCheck": "Last checked",
       "update.checkNow": "Check Update",
       "update.pivot.changelog": "Changelog",
@@ -2152,9 +2468,38 @@
     const items = document.querySelectorAll(".sidebar-item");
     const sections = document.querySelectorAll(".section");
     const title = document.getElementById("section-title");
+    
+    // Easter Egg: Windows Background Sound + Shine Effect
+    const audio = new Audio("file:///C:/Windows/Media/Windows Background.wav");
+    
     items.forEach(function (item) {
       item.addEventListener("click", function () {
         const key = item.getAttribute("data-section");
+        
+        // Check if user is on the third island (Update section) and clicked a disabled middle sidebar item
+        if (key === "plugins" && item.classList.contains("disabled")) {
+             // Ensure we are actually on the update section
+             const updateSection = document.getElementById("section-update");
+             if (updateSection && updateSection.classList.contains("active")) {
+                 // Play sound
+                 audio.currentTime = 0;
+                 audio.play().catch(e => console.log("Audio play failed", e));
+                 
+                 // Apply shine to the update section content
+                 // The update section has a .update-content wrapper usually, or we shine the section itself
+                 const target = updateSection.querySelector(".update-content") || updateSection;
+                 
+                 target.classList.remove("shine-effect");
+                 void target.offsetWidth; // Force reflow
+                 target.classList.add("shine-effect");
+                 
+                 setTimeout(() => {
+                     target.classList.remove("shine-effect");
+                 }, 600);
+                 return;
+             }
+        }
+
         items.forEach(function (i) {
           i.classList.remove("active");
         });
@@ -2169,7 +2514,7 @@
             title.textContent = text;
             title.setAttribute("data-i18n", textKey);
           }
-          title.style.display = key === "about" ? "none" : "block";
+          title.style.display = (key === "about" || key === "plugins") ? "none" : "block";
         }
       });
     });
@@ -2228,6 +2573,26 @@
     setSwitch("Update", "AutoCheck");
     setSwitch("Update", "BetaProgram");
 
+    // Splash Mode
+    const splashMode = settings.General?.SplashMode || "Always";
+    const splashEl = document.getElementById("sel-General-SplashMode");
+    if (splashEl) {
+        splashEl.value = splashMode;
+        // Trigger UI update for time inputs
+        const timeRangeEl = document.getElementById("splash-time-range");
+        if (timeRangeEl) {
+            timeRangeEl.style.display = splashMode === "TimeRange" ? "flex" : "none";
+        }
+    }
+    const splashStart = settings.General?.SplashStartTime || "08:00";
+    const splashEnd = settings.General?.SplashEndTime || "20:00";
+    const startEl = document.getElementById("splash-start-time");
+    const endEl = document.getElementById("splash-end-time");
+    if (startEl) startEl.value = splashStart;
+    if (endEl) endEl.value = splashEnd;
+
+    // Layout mode UI setup removed
+
     const lang = settings.General && settings.General.Language;
     if (lang) currentLanguage = lang;
 
@@ -2265,7 +2630,8 @@
         if (wm && version) {
           const parts = String(version).trim().split(".");
           if (parts.length >= 2 && parts[parts.length - 1] === "1") {
-            wm.textContent = `开发中版本/技术预览版本\n不保证最终品质 （${version}）`;
+            const tmpl = getText("general.devWatermark") || "开发中版本/技术预览版本\n不保证最终品质 （{version}）";
+            wm.textContent = tmpl.replace("{version}", version);
             wm.style.display = "block";
           } else {
             wm.style.display = "none";
@@ -2668,6 +3034,30 @@
     applySettingsToUI();
   }
 
+  function setSplashMode(mode) {
+      if (!settings.General) settings.General = {};
+      settings.General.SplashMode = mode;
+      
+      const timeRangeEl = document.getElementById("splash-time-range");
+      if (timeRangeEl) {
+          timeRangeEl.style.display = mode === "TimeRange" ? "flex" : "none";
+      }
+      
+      if (window.pywebview && window.pywebview.api.save_setting) {
+          window.pywebview.api.save_setting("General", "SplashMode", mode);
+      }
+  }
+
+  function setSplashTime(type, value) {
+      if (!settings.General) settings.General = {};
+      const key = "Splash" + type + "Time";
+      settings.General[key] = value;
+      
+      if (window.pywebview && window.pywebview.api.save_setting) {
+          window.pywebview.api.save_setting("General", key, value);
+      }
+  }
+
   function updateAccentColor() { }
 
   // Update Manager - Handles all update checking logic
@@ -2987,4 +3377,3 @@
 </body>
 
 </html>
-```

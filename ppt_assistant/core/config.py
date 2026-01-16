@@ -36,7 +36,16 @@ class Config(QConfig):
 
     autoHandleInk = ConfigItem("PPT", "AutoHandleInk", True, BoolValidator())
 
-    # App Launcher Shortcuts: list of dicts [{"name": str, "path": str, "icon": str}]
+    splashMode = OptionsConfigItem(
+        "General",
+        "SplashMode",
+        "Always",
+        OptionsValidator(["Always", "Never", "HideOnAutoStart", "TimeRange"]),
+        restart=False,
+    )
+    splashStartTime = ConfigItem("General", "SplashStartTime", "08:00", restart=False)
+    splashEndTime = ConfigItem("General", "SplashEndTime", "20:00", restart=False)
+
     quickLaunchApps = ConfigItem("Toolbar", "QuickLaunchApps", [], restart=False)
 
 
@@ -113,6 +122,10 @@ def _bind_auto_save():
     cfg.showUndoRedo.valueChanged.connect(lambda *_: _save_cfg())
     cfg.showStatusBar.valueChanged.connect(lambda *_: _save_cfg())
     cfg.autoHandleInk.valueChanged.connect(lambda *_: _save_cfg())
+    cfg.splashMode.valueChanged.connect(lambda *_: _save_cfg())
+    cfg.splashStartTime.valueChanged.connect(lambda *_: _save_cfg())
+    cfg.splashEndTime.valueChanged.connect(lambda *_: _save_cfg())
+    # cfg.toolbarLayout.valueChanged.connect(lambda *_: _save_cfg())
 
 
 _bind_auto_save()

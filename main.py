@@ -5,10 +5,24 @@ import tempfile
 import subprocess
 import json
 import importlib
+import time
+
+# Delay heavy imports or move them inside if __name__ == "__main__" logic
+# to allow --webview-runner to start fast and clean.
+
+if __name__ == "__main__":
+    if "--webview-runner" in sys.argv:
+        # Minimal imports for webview runner
+        idx = sys.argv.index("--webview-runner")
+        import plugins.webview_runner as _wv
+        # Adjust sys.argv so argparse in webview_runner (if any) sees clean args
+        sys.argv = ["webview_runner.py"] + sys.argv[idx + 1 :]
+        _wv.main()
+        sys.exit(0)
 
 from PySide6.QtWidgets import QApplication, QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit, QFrame, QGraphicsDropShadowEffect, QProgressBar
-from PySide6.QtCore import Qt, QTimer, Slot, QSize
-from PySide6.QtGui import QFontDatabase, QFont, QColor, QIcon
+from PySide6.QtCore import Qt, QTimer, Slot, QSize, QPoint
+from PySide6.QtGui import QFontDatabase, QFont, QColor, QIcon, QRegion, QPainter, QPen, QBrush
 
 from ppt_assistant.core.ppt_monitor import PPTMonitor
 from ppt_assistant.ui.overlay import OverlayWindow
@@ -16,20 +30,62 @@ from plugins.builtins.settings.plugin import SettingsPlugin
 from plugins.builtins.timer.plugin import TimerPlugin
 from ppt_assistant.ui.tray import SystemTray
 from ppt_assistant.core.config import cfg, SETTINGS_PATH, reload_cfg, _apply_theme_and_color
+from ppt_assistant.core.timer_manager import TimerManager
+from ppt_assistant.core.i18n import t
 
 
 SPLASH_I18N = {
     "zh-CN": {
         "initializing": "正在初始化",
+        "loading_config": "加载配置",
+        "loading_fonts": "加载字体",
+        "init_monitor": "启动监视器",
+        "init_ui": "创建界面",
+        "loading_plugins": "加载插件",
+        "loading_settings": "加载设置",
+        "loading_timer": "加载计时器",
+        "init_tray": "创建托盘图标",
+        "finalizing": "完成初始化",
+        "dev_watermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）"
     },
     "zh-TW": {
         "initializing": "正在初始化",
+        "loading_config": "載入設定",
+        "loading_fonts": "載入字型",
+        "init_monitor": "啟動監視器",
+        "init_ui": "建立介面",
+        "loading_plugins": "載入插件",
+        "loading_settings": "載入設定",
+        "loading_timer": "載入計時器",
+        "init_tray": "建立系統匣圖示",
+        "finalizing": "完成初始化",
+        "dev_watermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）"
     },
     "ja-JP": {
         "initializing": "初期化中",
+        "loading_config": "設定を読み込み中",
+        "loading_fonts": "フォントを読み込み中",
+        "init_monitor": "モニターを起動中",
+        "init_ui": "UIを作成中",
+        "loading_plugins": "プラグインを読み込み中",
+        "loading_settings": "設定を読み込み中",
+        "loading_timer": "タイマーを読み込み中",
+        "init_tray": "トレイアイコンを作成中",
+        "finalizing": "初期化完了",
+        "dev_watermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）"
     },
     "en-US": {
         "initializing": "Initializing",
+        "loading_config": "Loading config",
+        "loading_fonts": "Loading fonts",
+        "init_monitor": "Starting monitor",
+        "init_ui": "Creating UI",
+        "loading_plugins": "Loading plugins",
+        "loading_settings": "Loading settings",
+        "loading_timer": "Loading timer",
+        "init_tray": "Creating system tray",
+        "finalizing": "Finalizing",
+        "dev_watermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})"
     }
 }
 
@@ -95,7 +151,7 @@ def _is_dev_preview_version(version: str) -> bool:
 class StartupSplash(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         self._container = QFrame(self)
@@ -108,13 +164,16 @@ class StartupSplash(QWidget):
         self._apply_styles()
         self._center_on_screen()
 
-        self._progress_timer = QTimer(self)
-        self._progress_timer.timeout.connect(self._advance_progress)
-        self._progress_timer.start(30)
+        # self._progress_timer = QTimer(self)
+        # self._progress_timer.timeout.connect(self._advance_progress)
+        # self._progress_timer.start(30)
+        
+        self.set_progress(0, "initializing")
 
         if _is_dev_preview_version(self._version_text):
             self._dev_watermark = QLabel(self)
-            self._dev_watermark.setText(f"开发中版本/技术预览版本\n不保证最终品质 （{self._version_text}）")
+            tmpl = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"]).get("dev_watermark", "")
+            self._dev_watermark.setText(tmpl.format(version=self._version_text))
             font = QFont()
             font.setPixelSize(11)
             self._dev_watermark.setFont(font)
@@ -127,120 +186,135 @@ class StartupSplash(QWidget):
                                      self.height() - self._dev_watermark.height() - 12)
 
     def _build_ui(self):
-        # Using absolute positioning based on QML study
-        self._container.setFixedSize(899, 286)
+        # Redesigned based on QML spec
+        # Width: 678, Height: 255
+        self._container.setFixedSize(678, 255)
         
-        # Logo (kZHTXT_2)
+        # Logo (kZHTXT_2.png equivalent) - x: 38, y: 37
         self._icon_label = QLabel(self._container)
-        self._icon_label.setFixedSize(64, 64)
+        self._icon_label.setFixedSize(64, 64) 
         icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "logo.svg")
         if os.path.exists(icon_path):
             icon = QIcon(icon_path)
             pix = icon.pixmap(64, 64)
             self._icon_label.setPixmap(pix)
-        self._icon_label.move(38, 47)
+        self._icon_label.move(38, 37)
 
-        # Brand name (kazuha)
+        # Brand Name (kazuha) - x: 38, y: 111
         self._brand_label = QLabel("Kazuha", self._container)
-        brand_font = QFont("Bahnschrift")
-        brand_font.setPixelSize(36)
-        brand_font.setBold(True)
+        brand_font = QFont("HarmonyOS Sans SC")
+        brand_font.setPixelSize(32)
+        brand_font.setWeight(QFont.Black) 
         self._brand_label.setFont(brand_font)
         self._brand_label.setFixedWidth(328)
-        self._brand_label.move(38, 143)
+        self._brand_label.setFixedHeight(32) 
+        self._brand_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self._brand_label.move(38, 111)
 
-        # Version/Codename (Right side - following QML's momoka_Kawaragi_ image position)
-        self._right_container = QWidget(self._container)
-        self._right_container.setFixedWidth(226) # 899 - 635 - 38
-        self._right_container.move(635, 47)
-        right_layout = QVBoxLayout(self._right_container)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(2)
+        # Version Info Container - x: 38, y: 143
+        # Combines Version, Code Name EN, and Code Name CN into a single rich text label
+        # This handles dynamic spacing better than absolute positioning
+        self._version_info_label = QLabel(self._container)
+        
+        # Construct HTML string
+        # QML x offsets: 38 -> 83 (+45) -> 174 (+91)
+        # Assuming these are just sequential. 
+        # Version: 1.0.107.0 (approx 45px width?)
+        # Momoka Kawaragi (approx 91px?)
+        # Spacing seems to be about 5-10px.
+        
+        ver_text = self._version_text or ""
+        en_text = self._code_name_en or ""
+        
+        html = f"""
+        <div style="line-height: 20px;">
+            <span style="font-family: 'MiSans'; font-size: 11px; font-weight: 500; color: #FFFFFF;">{ver_text}</span>
+            <span style="font-family: 'MiSans'; font-size: 11px; font-weight: 300; color: rgba(255, 255, 255, 0.47); margin-left: 2px;">{en_text}</span>
+        </div>
+        """
+        
+        self._version_info_label.setText(html)
+        self._version_info_label.adjustSize()
+        self._version_info_label.move(38, 143) 
 
-        self._version_label = QLabel(self._version_text or "")
-        version_font = QFont("Bahnschrift")
-        version_font.setPixelSize(12)
-        version_font.setStretch(75)
-        self._version_label.setFont(version_font)
-        self._version_label.setAlignment(Qt.AlignRight)
+        # Loading Spinner (Vector) - x: 38, y: 199
+        self._spinner = IndeterminateSpinner(self._container)
+        self._spinner.move(38, 199)
+        self._spinner.start()
 
-        self._code_name_en_label = QLabel(self._code_name_en or "")
-        code_en_font = QFont("Bahnschrift")
-        code_en_font.setPixelSize(22)
-        code_en_font.setBold(True)
-        code_en_font.setStretch(75)
-        self._code_name_en_label.setFont(code_en_font)
-        self._code_name_en_label.setAlignment(Qt.AlignRight)
-
-        self._code_name_cn_label = QLabel(self._code_name_cn or "")
-        code_cn_font = QFont()
-        code_cn_font.setPixelSize(11)
-        self._code_name_cn_label.setFont(code_cn_font)
-        self._code_name_cn_label.setAlignment(Qt.AlignRight)
-
-        right_layout.addWidget(self._version_label)
-        right_layout.addWidget(self._code_name_en_label)
-        right_layout.addWidget(self._code_name_cn_label)
-
-        # Status text (element)
+        # Status Text (element_2) - x: 76, y: 203
         init_text = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"])["initializing"]
-        self._percent_label = QLabel(f"8% {init_text}", self._container)
-        percent_font = QFont()
-        percent_font.setPixelSize(13)
+        self._percent_label = QLabel(f"{init_text} 0%", self._container)
+        percent_font = QFont("HarmonyOS Sans SC")
+        percent_font.setPixelSize(15)
+        percent_font.setBold(True)
         self._percent_label.setFont(percent_font)
         self._percent_label.setFixedWidth(221)
-        self._percent_label.setAlignment(Qt.AlignRight)
-        self._percent_label.move(643, 220)
+        self._percent_label.setFixedHeight(24)
+        self._percent_label.setStyleSheet("color: #d9d9d9;")
+        self._percent_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self._percent_label.move(76, 200)
 
-        # Progress bar (rectangle_30 & rectangle_31)
+        # Progress Bar Background (rectangle_30) - x: 271, y: 247, w: 407, h: 8
+        self._progress_bg = QFrame(self._container)
+        self._progress_bg.setFixedSize(407, 8)
+        self._progress_bg.move(271, 247)
+        self._progress_bg.setStyleSheet("background-color: #29454545; border: none;")
+
+        # Progress Bar Foreground (rectangle_31) - y: 247, h: 8, w: 641, color: #3275f5
+        # Using QProgressBar to simulate this
         self._progress = QProgressBar(self._container)
         self._progress.setRange(0, 100)
-        self._progress.setValue(8)
+        self._progress.setValue(0)
         self._progress.setTextVisible(False)
         self._progress.setFixedHeight(8)
-        self._progress.setFixedWidth(823) # 899 - 38 - 38
-        self._progress.move(38, 248)
+        self._progress.setFixedWidth(641) 
+        self._progress.move(0, 247)
+        self._progress.setStyleSheet(
+            "QProgressBar { background: transparent; border: none; }"
+            "QProgressBar::chunk { background-color: #3275f5; }"
+        )
 
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(24)
         shadow.setOffset(0, 8)
-        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setColor(QColor(0, 0, 0, 60))
         self._container.setGraphicsEffect(shadow)
 
     def _apply_styles(self):
-        from qfluentwidgets import isDarkTheme
-        self._is_dark = isDarkTheme()
+        # Forced Dark Theme colors from QML
+        bg_color = "rgba(47, 47, 47, 240)" # Semi-transparent background (approx 94% opacity)
+        border_color = "rgba(255, 255, 255, 0.15)" # Inner light stroke
         
-        bg_color = "#202020" if self._is_dark else "white"
-        brand_color = "#FFFFFF" if self._is_dark else "#000000"
-        version_color = "#E0E0E0" if self._is_dark else "#222222"
-        codename_en_color = "#FFFFFF" if self._is_dark else "#000000"
-        codename_cn_color = "#AAAAAA" if self._is_dark else "#999999"
-        percent_color = "#FFFFFF" if self._is_dark else "#000000"
-        progress_bg = "rgba(255, 255, 255, 0.1)" if self._is_dark else "rgba(69, 69, 69, 0.16)"
-        chunk_color = "#E1EBFF" if self._is_dark else "#3275F5"
+        brand_color = "#ffffff"
+        percent_color = "#d9d9d9"
+        
+        # rectangle_30 color #29454545 -> Bg of progress?
+        # rectangle_31 color #3275f5 -> Fg of progress
+        progress_bg = "#454545" 
+        chunk_color = "#3275f5"
 
-        self.resize(899, 286)
+        self.resize(678, 255)
+        self.setMask(QRegion(0, 0, 678, 255)) # Simple rect mask if needed, but frameless handles it
+        
         self._container.setStyleSheet(
             f"QFrame#splashContainer {{"
             f"background-color: {bg_color};"
-            "border-radius: 5px;"
+            f"border: 1px solid {border_color};"
+            "border-radius: 8px;"
             "}"
         )
         self._brand_label.setStyleSheet(f"color: {brand_color};")
-        self._version_label.setStyleSheet(f"color: {version_color};")
-        self._code_name_en_label.setStyleSheet(f"color: {codename_en_color};")
-        self._code_name_cn_label.setStyleSheet(f"color: {codename_cn_color};")
+        
         self._percent_label.setStyleSheet(f"color: {percent_color};")
+        
         self._progress.setStyleSheet(
             "QProgressBar {"
             f"background-color: {progress_bg};"
-            "border-radius: 4px;"
             "border: none;"
             "}"
             "QProgressBar::chunk {"
             f"background-color: {chunk_color};"
-            "border-radius: 4px;"
             "}"
         )
 
@@ -255,21 +329,81 @@ class StartupSplash(QWidget):
         y = screen_geo.y() + (screen_geo.height() - h) // 2
         self.move(x, y)
 
-    def _advance_progress(self):
-        value = self._progress.value()
-        if value < 95:
-            value += 1
-            self._progress.setValue(value)
-            init_text = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"])["initializing"]
-            self._percent_label.setText(f"{value}% {init_text}")
-        else:
-            self._progress_timer.stop()
+    def set_progress(self, value, text_key="initializing"):
+        value = min(max(value, 0), 100)
+        self._progress.setValue(value)
+        
+        display_text = SPLASH_I18N.get(self._language, SPLASH_I18N["zh-CN"]).get(text_key, text_key)
+        self._percent_label.setText(f"{display_text} {value}%")
+        
+        # Update spinner if needed, or it spins automatically
+        QApplication.processEvents()
 
     def finish(self):
-        self._progress_timer.stop()
         self._progress.setValue(100)
-        self._percent_label.setText("100% 初始化完成")
+        self._percent_label.setText("初始化完成 100%")
+        if hasattr(self, '_spinner'):
+            self._spinner.stop()
         QTimer.singleShot(250, self.close)
+
+class IndeterminateSpinner(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(27, 27)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._rotate)
+        self._timer.start(16) # ~60 FPS
+
+    def start(self):
+        if not self._timer.isActive():
+            self._timer.start()
+
+    def stop(self):
+        self._timer.stop()
+
+    def _rotate(self):
+        self._angle = (self._angle + 5) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        rect = self.rect()
+        cx, cy = rect.center().x(), rect.center().y()
+        
+        # Outer ring (static) - #d9d9d9 stroke ~3px based on image
+        # The image shows a thick grey ring
+        ring_color = QColor("#d9d9d9")
+        pen = QPen(ring_color)
+        pen.setWidth(3)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        
+        # Draw ring. Adjust rect to account for pen width
+        ring_radius = 10 
+        painter.drawEllipse(QPoint(cx, cy), ring_radius, ring_radius)
+        
+        # Inner rotating dot
+        # The image shows a solid dot INSIDE the ring, rotating along the inner edge
+        # The dot seems to be about 1/3 the diameter of the hole
+        
+        painter.save()
+        painter.translate(cx, cy)
+        painter.rotate(self._angle)
+        
+        # Draw small circle on the orbit
+        # Orbit radius should be smaller than ring_radius - pen_width/2 - dot_radius
+        dot_radius = 2.5
+        orbit_radius = ring_radius - 3 - dot_radius + 1 # Fine tuned visual position
+        
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(ring_color))
+        painter.drawEllipse(QPoint(0, -orbit_radius), dot_radius, dot_radius)
+        
+        painter.restore()
+        painter.end()
 
 def show_webview_dialog(title, text, confirm_text="确认", cancel_text="取消", is_error=False, hide_cancel=False, code=None):
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -416,14 +550,33 @@ def _handle_multi_instance(app: QApplication):
     sys.exit(0)
 
 
+def _t(key):
+    return key # Simple fallback if i18n is missing
+
 class PPTAssistantApp:
     def __init__(self, app: QApplication, splash=None):
         self.app = app
         self.app.setQuitOnLastWindowClosed(False)
         self._splash = splash
+        self._timer_manager = TimerManager()
+        self._last_timer_notify_at = 0.0
+        self._reloading_overlay = False
+        self._reload_timer = QTimer()
+        self._reload_timer.setSingleShot(True)
+        self._reload_timer.setInterval(150)
+        self._reload_timer.timeout.connect(self._reload_overlay)
         
+        # Start async initialization
+        self._init_gen = self._init_steps()
+        QTimer.singleShot(0, self._perform_init_step)
+
+    def _init_steps(self):
+        # Step 1: Basic Config
+        yield 10, "loading_config"
         _apply_theme_and_color(cfg.themeMode.value)
         
+        # Step 2: Fonts
+        yield 20, "loading_fonts"
         _apply_global_font(self.app)
 
         self._settings_mtime = os.path.getmtime(SETTINGS_PATH) if os.path.exists(SETTINGS_PATH) else 0
@@ -434,19 +587,57 @@ class PPTAssistantApp:
 
         self.app.aboutToQuit.connect(self.cleanup)
 
+        # Step 3: Monitor (Non-UI logic)
+        yield 30, "init_monitor"
         self.monitor = PPTMonitor()
+        
+        # Step 4: Overlay (UI creation - expensive)
+        yield 40, "init_ui"
+        # Yield to event loop BEFORE creating heavy UI to prevent freeze
+        # We can split Overlay creation if needed, but yielding before is key
+        pass 
+        
         self.overlay = OverlayWindow()
+        
+        # Step 5: Plugins (IO/Process - expensive)
+        yield 60, "loading_plugins"
         self.settings_plugin = SettingsPlugin()
+        
+        yield 70, "loading_timer"
         self.timer_plugin = TimerPlugin()
+        
+        # Step 6: Tray (UI)
+        yield 80, "init_tray"
         self.tray = SystemTray()
+        
+        # Step 7: Finalize connections
+        yield 85, "finalizing"
         self.overlay.set_monitor(self.monitor)
 
+        yield 90, "finalizing"
         self._connect_signals()
 
+        yield 95, "finalizing"
         self.monitor.start_monitoring()
 
         if self._splash is not None:
             self._splash.finish()
+
+    def _perform_init_step(self):
+        try:
+            progress, text = next(self._init_gen)
+            self.update_splash(progress, text)
+            # Schedule next step immediately but allow event loop to breathe
+            QTimer.singleShot(0, self._perform_init_step)
+        except StopIteration:
+            pass # Done
+        except Exception as e:
+            print(f"Initialization error: {e}")
+            sys.exit(1)
+
+    def update_splash(self, value, text):
+        if self._splash:
+            self._splash.set_progress(value, text)
 
     def _connect_signals(self):
         self.monitor.slideshow_started.connect(self.on_slideshow_start)
@@ -466,15 +657,35 @@ class PPTAssistantApp:
         self.tray.restart_app.connect(self.restart)
         self.tray.exit_app.connect(self.app.quit)
 
+        self._timer_manager.finished.connect(self._on_timer_finished)
+
         self.monitor.slide_changed.connect(self.overlay.update_page_info)
+        self.monitor.window_geometry_changed.connect(self.overlay.update_geometry)
 
     @Slot()
+    def _on_timer_finished(self):
+        now = time.monotonic()
+        if now - self._last_timer_notify_at < 1.0:
+            return
+        self._last_timer_notify_at = now
+        if hasattr(self, "tray") and self.tray:
+            self.tray.show_message(t("timer.notify.title"), t("timer.notify.body"))
+    
+    @Slot()
     def on_slideshow_start(self):
+        # Cleanup slide thumbnails from previous session
+        temp_dir = os.path.join(tempfile.gettempdir(), "kazuha_ppt_thumbs")
+        if os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception:
+                pass
+
         if cfg.autoShowOverlay.value:
-            self.overlay.showFullScreen()
+            self.overlay.show()
             self.overlay.raise_()
             self.tray.show_message("PPT Assistant", "Slideshow detected. Overlay active.")
-
+    
     @Slot()
     def on_slideshow_end(self):
         self.overlay.hide()
@@ -491,6 +702,7 @@ class PPTAssistantApp:
             old_toolbar_text = cfg.showToolbarText.value
             old_status_bar = cfg.showStatusBar.value
             old_undo_redo = cfg.showUndoRedo.value
+            # old_layout_mode = cfg.toolbarLayout.value
 
             reload_cfg()
             
@@ -501,7 +713,10 @@ class PPTAssistantApp:
                 cfg.showToolbarText.value != old_toolbar_text or 
                 cfg.showStatusBar.value != old_status_bar or
                 cfg.showUndoRedo.value != old_undo_redo):
-                self._reload_overlay()
+                if not self._reloading_overlay:
+                    self._reload_timer.start()
+            
+            # Layout mode change is now handled by auto-reload above, no restart prompt needed
             
             if cfg.themeMode.value != old_theme:
                 if hasattr(self, 'tray'):
@@ -509,43 +724,68 @@ class PPTAssistantApp:
 
     def _reload_overlay(self):
         """Recreate the overlay window to apply language and layout changes."""
+        if self._reloading_overlay:
+            return
+        self._reloading_overlay = True
         was_visible = self.overlay.isVisible()
         
-        # Cleanup old overlay
-        self.overlay.hide()
-        self.overlay.deleteLater()
-        
-        # Import overlay again to refresh module-level LANGUAGE
-        import ppt_assistant.ui.overlay as overlay_mod
-        importlib.reload(overlay_mod)
-        from ppt_assistant.ui.overlay import OverlayWindow
-        
-        # Create new overlay
-        self.overlay = OverlayWindow()
-        self.overlay.set_monitor(self.monitor)
-        
-        # Re-connect signals
-        self.overlay.request_next.connect(self.monitor.go_next)
-        self.overlay.request_prev.connect(self.monitor.go_previous)
-        self.overlay.request_end.connect(self.monitor.end_show)
-        self.overlay.request_ptr_arrow.connect(lambda: self.monitor.set_pointer_type(1))
-        self.overlay.request_ptr_pen.connect(lambda: self.monitor.set_pointer_type(2))
-        self.overlay.request_ptr_eraser.connect(lambda: self.monitor.set_pointer_type(5))
-        self.overlay.request_pen_color.connect(self.monitor.set_pen_color)
-        
-        self.monitor.slide_changed.connect(self.overlay.update_page_info)
-        
-        if was_visible:
-            if self.monitor and self.monitor._running:
-                self.overlay.showFullScreen()
-            else:
+        try:
+            # Import overlay again to refresh module-level LANGUAGE
+            import ppt_assistant.ui.overlay as overlay_mod
+            importlib.reload(overlay_mod)
+            from ppt_assistant.ui.overlay import OverlayWindow
+            
+            # Create new overlay first (prevent crash if creation fails)
+            new_overlay = OverlayWindow()
+            new_overlay.set_monitor(self.monitor)
+            
+            # Re-connect signals
+            new_overlay.request_next.connect(self.monitor.go_next)
+            new_overlay.request_prev.connect(self.monitor.go_previous)
+            new_overlay.request_end.connect(self.monitor.end_show)
+            new_overlay.request_ptr_arrow.connect(lambda: self.monitor.set_pointer_type(1))
+            new_overlay.request_ptr_pen.connect(lambda: self.monitor.set_pointer_type(2))
+            new_overlay.request_ptr_eraser.connect(lambda: self.monitor.set_pointer_type(5))
+            new_overlay.request_pen_color.connect(self.monitor.set_pen_color)
+            
+            # Disconnect old overlay slots before connecting new ones
+            try:
+                self.monitor.slide_changed.disconnect(self.overlay.update_page_info)
+            except Exception:
+                pass
+            try:
+                self.monitor.window_geometry_changed.disconnect(self.overlay.update_geometry)
+            except Exception:
+                pass
+            self.monitor.slide_changed.connect(new_overlay.update_page_info)
+            self.monitor.window_geometry_changed.connect(new_overlay.update_geometry)
+            
+            # Swap overlay
+            old_overlay = self.overlay
+            self.overlay = new_overlay
+            
+            # Cleanup old overlay
+            old_overlay.cleanup() # Stop threads safely
+            old_overlay.hide()
+            old_overlay.deleteLater()
+            
+            if was_visible:
                 self.overlay.show()
-            self.overlay.raise_()
-        
-        # Update current page info immediately
-        if self.monitor:
-            curr, total = self.monitor.get_page_info()
-            self.overlay.update_page_info(curr, total)
+                self.overlay.raise_()
+            
+            # Update current page info immediately
+            if self.monitor:
+                curr, total = self.monitor.get_page_info()
+                self.overlay.update_page_info(curr, total)
+                self.monitor.force_update_geometry()
+                
+        except Exception as e:
+            print(f"Error reloading overlay: {e}")
+            # If failed, keep using the old overlay if it's still alive
+            if was_visible and not self.overlay.isVisible():
+                 self.overlay.show()
+        finally:
+            self._reloading_overlay = False
 
     def restart(self):
         self.cleanup()
@@ -561,27 +801,50 @@ class PPTAssistantApp:
             self.overlay.cleanup()
 
     def run(self):
-        sys.exit(self.app.exec())
+        # sys.exit(self.app.exec())
+        pass
 
 
 if __name__ == "__main__":
-    if "--webview-runner" in sys.argv:
-        idx = sys.argv.index("--webview-runner")
-        import plugins.webview_runner as _wv
-        sys.argv = ["webview_runner.py"] + sys.argv[idx + 1 :]
-        _wv.main()
-        sys.exit(0)
-
     app = QApplication(sys.argv)
     _apply_global_font(app)
     crash_handler = CrashHandler(app)
-    _handle_multi_instance(app)
+    # _handle_multi_instance(app)
 
-    splash = StartupSplash()
-    splash.show()
-    app.processEvents()
+    show_splash = True
+    try:
+        mode = cfg.splashMode.value
+        if mode == "Never":
+            show_splash = False
+        elif mode == "HideOnAutoStart":
+            args = [a.lower() for a in sys.argv]
+            if "--autostart" in args or "-autostart" in args or "--silent" in args:
+                show_splash = False
+        elif mode == "TimeRange":
+            from PySide6.QtCore import QTime
+            start_str = cfg.splashStartTime.value
+            end_str = cfg.splashEndTime.value
+            start_t = QTime.fromString(start_str, "HH:mm")
+            end_t = QTime.fromString(end_str, "HH:mm")
+            now = QTime.currentTime()
+            
+            if start_t.isValid() and end_t.isValid():
+                if start_t <= end_t:
+                    if not (start_t <= now <= end_t):
+                        show_splash = False
+                else:
+                    if not (now >= start_t or now <= end_t):
+                        show_splash = False
+    except Exception as e:
+        print(f"Error determining splash visibility: {e}")
+        show_splash = True
+
+    splash = None
+    if show_splash:
+        splash = StartupSplash()
+        splash.show()
+        app.processEvents()
 
     app_instance = PPTAssistantApp(app, splash)
     crash_handler.set_app_instance(app_instance)
-    app_instance.run()
-
+    sys.exit(app.exec())

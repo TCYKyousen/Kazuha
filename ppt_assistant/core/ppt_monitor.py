@@ -1,76 +1,96 @@
 import win32com.client
 import pythoncom
-from PySide6.QtCore import QObject, Signal, QThread, QTimer, QPoint
+from PySide6.QtCore import QObject, Signal, QThread, QTimer, QPoint, QRect, Slot
 from PySide6.QtGui import QGuiApplication
 import time
 from ppt_assistant.core.config import cfg
 
 try:
     import win32gui
+    import win32api
+    import win32con
 except ImportError:
     win32gui = None
+    win32api = None
+    win32con = None
 
-class PPTMonitor(QObject):
+class PPTWorker(QObject):
     """
-    Monitors PowerPoint state and emits signals when slideshow starts/ends.
-    Also provides methods to control slides.
+    Worker thread for PPT COM operations to prevent blocking the main UI.
     """
+    # Signals to Main Thread
     slideshow_started = Signal()
     slideshow_ended = Signal()
     slide_changed = Signal(int, int) # current, total
-    window_geometry_changed = Signal(int, int, int, int) # left, top, width, height
-    
+    window_geometry_changed = Signal(object, object) # QRect, QScreen
+    video_state_changed = Signal(float, float, float) # ratio, pos, length
+    thumbnail_generated = Signal(int, str) # index, path
+
     def __init__(self):
         super().__init__()
         self.ppt_app = None
         self.wps_app = None
         self._running = False
-        self._monitoring_active = False
         self._current_slide = 0
         self._total_slides = 0
-        self._video_position = 0.0
-        self._video_length = 0.0
         self._last_win_rect = (0, 0, 0, 0)
         self._active_kind = None
+        self._last_screen = None
+        self._timer = None
+        self._com_initialized = False
 
-    def get_page_info(self):
-        """Returns (current_slide, total_slides)."""
-        return self._current_slide, self._total_slides
+    @Slot()
+    def start(self):
+        if not self._com_initialized:
+            pythoncom.CoInitialize()
+            self._com_initialized = True
+            
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._check_ppt_state)
+        self._timer.start(200)
 
-    def start_monitoring(self):
-        self._monitoring_active = True
-        self._check_timer = QTimer(self)
-        self._check_timer.timeout.connect(self._check_ppt_state)
-        self._check_timer.start(200)  # Check every 200ms
+    @Slot()
+    def stop(self):
+        if self._timer:
+            self._timer.stop()
+        if self._com_initialized:
+            pythoncom.CoUninitialize()
+            self._com_initialized = False
 
-    def stop_monitoring(self):
-        self._monitoring_active = False
-        if hasattr(self, '_check_timer'):
-            self._check_timer.stop()
+    def _get_active_app(self):
+        # Helper to get the currently tracked app
+        if self._active_kind == "ppt" and self.ppt_app: return self.ppt_app
+        if self._active_kind == "wps" and self.wps_app: return self.wps_app
+        # Fallback
+        if self.ppt_app: return self.ppt_app
+        if self.wps_app: return self.wps_app
+        return None
 
     def _check_ppt_state(self):
         try:
+            # 1. Try PowerPoint
             try:
                 self.ppt_app = win32com.client.GetActiveObject("PowerPoint.Application")
             except Exception:
                 self.ppt_app = None
-                self._check_wps_com_state()
+                self._check_wps_state()
                 return
 
             if self.ppt_app.SlideShowWindows.Count > 0:
                 try:
-                    state = self.ppt_app.SlideShowWindows(1).View.State
-                    if state in [1, 2]:
+                    ss_win = self.ppt_app.SlideShowWindows(1)
+                    view = ss_win.View
+                    state = view.State
+                    
+                    if state in [1, 2]: # Running or Paused
                         if not self._running:
                             self._running = True
                             self._active_kind = "ppt"
                             self.slideshow_started.emit()
                         
                         try:
-                            ss_win = self.ppt_app.SlideShowWindows(1)
-                            view = ss_win.View
                             current = view.Slide.SlideIndex
-                            presentation = self.ppt_app.SlideShowWindows(1).Presentation
+                            presentation = ss_win.Presentation
                             total = presentation.Slides.Count
                             
                             if current != self._current_slide or total != self._total_slides:
@@ -79,261 +99,387 @@ class PPTMonitor(QObject):
                                 self.slide_changed.emit(current, total)
                             
                             self._update_window_rect(ss_win)
-                            self._update_video_state()
+                            self._update_video_state(ss_win)
                         except Exception:
                             pass
                     else:
-                        if state == 5 and self._running:
-                             self._running = False
-                             if self._active_kind == "ppt":
-                                 self._active_kind = None
-                             self.slideshow_ended.emit()
+                        self._handle_stop("ppt")
                 except Exception:
                     pass
             else:
-                if self._running:
-                    self._running = False
-                    if self._active_kind == "ppt":
-                        self._active_kind = None
-                    self.slideshow_ended.emit()
+                self._handle_stop("ppt")
 
-        except Exception as e:
+        except Exception:
             pass
-
+            
+        # If not running PPT, check WPS
         if not self._running:
-            self._check_wps_com_state()
+            self._check_wps_state()
 
-    def _check_wps_com_state(self):
+    def _check_wps_state(self):
         try:
             self.wps_app = win32com.client.GetActiveObject("KWPP.Application")
         except Exception:
             self.wps_app = None
-            if self._running and self._active_kind == "wps":
-                self._running = False
-                self._active_kind = None
-                self.slideshow_ended.emit()
-            return False
+            self._handle_stop("wps")
+            return
 
         try:
             if self.wps_app.SlideShowWindows.Count > 0:
+                ss_win = self.wps_app.SlideShowWindows(1)
+                view = ss_win.View
+                # WPS State might differ, usually 1=Running
+                state = getattr(view, "State", 1)
+                
+                if state in [1, 2]:
+                    if not self._running:
+                        self._running = True
+                        self._active_kind = "wps"
+                        self.slideshow_started.emit()
+
+                    try:
+                        current = view.Slide.SlideIndex
+                        presentation = ss_win.Presentation
+                        total = presentation.Slides.Count
+
+                        if current != self._current_slide or total != self._total_slides:
+                            self._current_slide = current
+                            self._total_slides = total
+                            self.slide_changed.emit(current, total)
+
+                        self._update_window_rect(ss_win)
+                        self._update_video_state(ss_win)
+                    except Exception:
+                        pass
+                else:
+                    self._handle_stop("wps")
+            else:
+                self._handle_stop("wps")
+        except Exception:
+            self._handle_stop("wps")
+
+    def _handle_stop(self, kind):
+        if self._running and (self._active_kind == kind or self._active_kind is None):
+            self._running = False
+            self._active_kind = None
+            self.slideshow_ended.emit()
+
+    def _update_window_rect(self, ss_win):
+        try:
+            l_left, l_top, l_width, l_height = 0, 0, 0, 0
+            screen = None
+            success = False
+            
+            # 1. Try Win32 API
+            if win32gui:
                 try:
-                    view = self.wps_app.SlideShowWindows(1).View
-                    state = getattr(view, "State", 1)
-                    if state in [1, 2]:
-                        if not self._running:
-                            self._running = True
-                            self._active_kind = "wps"
-                            self.slideshow_started.emit()
-
-                        try:
-                            ss_win = self.wps_app.SlideShowWindows(1)
-                            view = ss_win.View
-                            current = view.Slide.SlideIndex
-                            presentation = ss_win.Presentation
-                            total = presentation.Slides.Count
-
-                            if current != self._current_slide or total != self._total_slides:
-                                self._current_slide = current
-                                self._total_slides = total
-                                self.slide_changed.emit(current, total)
-
-                            self._update_window_rect(ss_win)
-                            self._update_video_state()
-                        except Exception:
-                            pass
-                    else:
-                        if state == 5 and self._running and self._active_kind == "wps":
-                             self._running = False
-                             self._active_kind = None
-                             self.slideshow_ended.emit()
+                    hwnd = getattr(ss_win, "HWND", 0)
+                    if hwnd:
+                        hwnd = int(hwnd)
+                        left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+                        w, h = right - left, bottom - top
+                        cx, cy = left + w // 2, top + h // 2
+                        
+                        # Note: QGuiApplication calls are not thread-safe if they access GUI
+                        # But screenAt/primaryScreen are generally okay.
+                        # However, strictly we should calculate rect here and let Main Thread determine Screen.
+                        # To be safe, we just emit the Rect and let Main Thread handle Screen resolution if possible.
+                        # OR: We trust QGuiApplication read-only methods.
+                        
+                        # Optimization: Just send raw rect, let UI thread figure out DPI/Screen
+                        # But existing logic does DPI scaling here. 
+                        # We will assume DPI unawareness in worker and let Main Thread handle scaling if needed?
+                        # Actually, raw pixels are better.
+                        
+                        # REVERTING to existing logic but being careful.
+                        # Accessing QGuiApplication in thread is risky for some operations.
+                        # Let's try to get screen in main thread.
+                        # But wait, we need screen for DPI.
+                        
+                        # Let's emit raw global coords and let main thread map it.
+                        final_rect = (left, top, w, h)
+                        success = True
                 except Exception:
                     pass
-            else:
-                if self._running and self._active_kind == "wps":
-                    self._running = False
-                    self._active_kind = None
-                    self.slideshow_ended.emit()
+
+            # 2. Fallback to COM
+            if not success:
+                try:
+                    l_left = int(getattr(ss_win, "Left", 0))
+                    l_top = int(getattr(ss_win, "Top", 0))
+                    l_width = int(getattr(ss_win, "Width", 0))
+                    l_height = int(getattr(ss_win, "Height", 0))
+                    final_rect = (l_left, l_top, l_width, l_height)
+                    success = True
+                except Exception:
+                    pass
+
+            if success:
+                if final_rect != self._last_win_rect:
+                    self._last_win_rect = final_rect
+                    # We send RAW rect (x, y, w, h). Main thread converts to QRect and finds Screen.
+                    self.window_geometry_changed.emit(QRect(*final_rect), None)
+                    
         except Exception:
-            return False
+            pass
 
-        return self._running and self._active_kind == "wps"
+    def _update_video_state(self, ss_win):
+        try:
+            view = ss_win.View
+            try:
+                slide = view.Slide
+                shapes = slide.Shapes
+                count = shapes.Count
+                found_video = False
+                for i in range(1, count + 1):
+                    shape = shapes.Item(i)
+                    media = getattr(shape, "MediaFormat", None)
+                    if media is None: continue
+                    
+                    length = getattr(media, "Length", 0)
+                    position = getattr(media, "Position", 0)
+                    
+                    if length and float(length) > 0:
+                        l = float(length)
+                        p = float(position or 0.0)
+                        ratio = p / l if l > 0 else 0
+                        self.video_state_changed.emit(ratio, p, l)
+                        found_video = True
+                        break
+                
+                if not found_video:
+                    self.video_state_changed.emit(0.0, 0.0, 0.0)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
-    def _get_active_app(self):
-        if self._active_kind == "ppt" and self.ppt_app is not None:
-            return self.ppt_app
-        if self._active_kind == "wps" and self.wps_app is not None:
-            return self.wps_app
-        if self.ppt_app is not None:
-            return self.ppt_app
-        if self.wps_app is not None:
-            return self.wps_app
-        return None
-
+    # --- Control Slots ---
+    @Slot()
     def go_next(self):
         try:
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
                 app.SlideShowWindows(1).View.Next()
-        except Exception as e:
-            print(f"Error going next: {e}")
+        except Exception:
+            pass
 
+    @Slot()
     def go_previous(self):
         try:
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
                 app.SlideShowWindows(1).View.Previous()
-        except Exception as e:
-            print(f"Error going previous: {e}")
+        except Exception:
+            pass
 
+    @Slot()
     def end_show(self):
         try:
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
                 if cfg.autoHandleInk.value and self._active_kind == "ppt":
-                    try:
-                        app.DisplayAlerts = 1
-                    except Exception as e:
-                        print(f"Error setting DisplayAlerts: {e}")
-
+                    try: app.DisplayAlerts = 1 
+                    except: pass
+                
                 app.SlideShowWindows(1).View.Exit()
 
                 if cfg.autoHandleInk.value and self._active_kind == "ppt":
-                    try:
-                        app.DisplayAlerts = -1
-                    except Exception:
-                        pass
-        except Exception as e:
-            print(f"Error ending show: {e}")
+                    try: app.DisplayAlerts = -1
+                    except: pass
+        except Exception:
+            pass
 
+    @Slot(int)
     def set_pointer_type(self, pointer_type):
         try:
-            pythoncom.CoInitialize()
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
-                ss_win = app.SlideShowWindows(1)
-                ss_win.View.PointerType = pointer_type
-                ss_win.Activate() 
-        except Exception as e:
-            print(f"Error setting pointer type: {e}")
+                app.SlideShowWindows(1).View.PointerType = pointer_type
+        except Exception:
+            pass
 
+    @Slot(int, int, int)
     def set_pen_color(self, r, g, b):
         try:
-            pythoncom.CoInitialize()
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
-                view = app.SlideShowWindows(1).View
-                rgb_value = r + (g << 8) + (b << 16)
-                view.PointerColor.RGB = rgb_value
-        except Exception as e:
-            print(f"Error setting pen color: {e}")
+                rgb = r + (g << 8) + (b << 16)
+                app.SlideShowWindows(1).View.PointerColor.RGB = rgb
+        except Exception:
+            pass
 
-    def get_total_slides(self):
-        return self._total_slides
-
+    @Slot(int)
     def go_to_slide(self, index):
         try:
-            pythoncom.CoInitialize()
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
-                view = app.SlideShowWindows(1).View
-                view.GotoSlide(index)
-        except Exception as e:
-            print(f"Error going to slide: {e}")
-
+                app.SlideShowWindows(1).View.GotoSlide(index)
+        except Exception:
+            pass
+            
+    @Slot(int, str)
     def export_slide_thumbnail(self, index, path):
         try:
-            pythoncom.CoInitialize()
             app = self._get_active_app()
             if app and app.SlideShowWindows.Count > 0:
-                presentation = app.SlideShowWindows(1).Presentation
-                slides = presentation.Slides
-                if 1 <= index <= slides.Count:
-                    slide = slides(index)
-                    slide.Export(path, "PNG", 320, 180)
-        except Exception as e:
-            print(f"Error exporting slide thumbnail: {e}")
+                pres = app.SlideShowWindows(1).Presentation
+                if 1 <= index <= pres.Slides.Count:
+                    pres.Slides(index).Export(path, "PNG", 320, 180)
+                    self.thumbnail_generated.emit(index, path)
+        except Exception:
+            pass
 
-    def _update_window_rect(self, ss_win):
-        try:
-            hwnd = getattr(ss_win, "HWND", None)
-            l_left, l_top, l_width, l_height = 0, 0, 0, 0
+
+class PPTMonitor(QObject):
+    """
+    Facade for PPTWorker. Runs worker in a separate thread.
+    """
+    slideshow_started = Signal()
+    slideshow_ended = Signal()
+    slide_changed = Signal(int, int)
+    window_geometry_changed = Signal(object, object)
+    video_state_changed = Signal(float, float, float)
+    thumbnail_generated = Signal(int, str)
+    
+    # Internal signals to worker
+    _req_start = Signal()
+    _req_stop = Signal()
+    _req_next = Signal()
+    _req_prev = Signal()
+    _req_end = Signal()
+    _req_ptr_type = Signal(int)
+    _req_pen_color = Signal(int, int, int)
+    _req_goto = Signal(int)
+    _req_export = Signal(int, str)
+
+    def __init__(self):
+        super().__init__()
+        self._thread = QThread()
+        self._worker = PPTWorker()
+        self._worker.moveToThread(self._thread)
+
+        # Wire up signals (Worker -> Self)
+        self._worker.slideshow_started.connect(self.slideshow_started)
+        self._worker.slideshow_ended.connect(self.slideshow_ended)
+        self._worker.slide_changed.connect(self._on_slide_changed)
+        self._worker.window_geometry_changed.connect(self._on_geometry_changed)
+        self._worker.video_state_changed.connect(self.video_state_changed)
+        self._worker.video_state_changed.connect(self._update_local_video_state)
+        self._worker.thumbnail_generated.connect(self.thumbnail_generated)
+
+        # Wire up requests (Self -> Worker)
+        self._req_start.connect(self._worker.start)
+        self._req_stop.connect(self._worker.stop)
+        self._req_next.connect(self._worker.go_next)
+        self._req_prev.connect(self._worker.go_previous)
+        self._req_end.connect(self._worker.end_show)
+        self._req_ptr_type.connect(self._worker.set_pointer_type)
+        self._req_pen_color.connect(self._worker.set_pen_color)
+        self._req_goto.connect(self._worker.go_to_slide)
+        self._req_export.connect(self._worker.export_slide_thumbnail)
+        
+        # Local state cache (for synchronous getters if needed)
+        self._current = 0
+        self._total = 0
+        self._video_ratio = 0.0
+        self._video_pos = 0.0
+        self._video_len = 0.0
+        
+        self._thread.start()
+
+    def start_monitoring(self):
+        self._req_start.emit()
+
+    def stop_monitoring(self):
+        self._req_stop.emit()
+        self._thread.quit()
+        self._thread.wait()
+
+    # --- Public API (Async) ---
+    def go_next(self):
+        self._req_next.emit()
+
+    def go_previous(self):
+        self._req_prev.emit()
+
+    def end_show(self):
+        self._req_end.emit()
+
+    def set_pointer_type(self, ptr_type):
+        self._req_ptr_type.emit(ptr_type)
+
+    def set_pen_color(self, r, g, b):
+        self._req_pen_color.emit(r, g, b)
+
+    def go_to_slide(self, index):
+        self._req_goto.emit(index)
+
+    def export_slide_thumbnail(self, index, path):
+        self._req_export.emit(index, path)
+        
+    def force_update_geometry(self):
+        # We can't force update easily from main thread without roundtrip
+        # But we can re-emit last known if we cached it.
+        # For now, ignore or implement caching if critical.
+        pass
+
+    # --- State Handling ---
+    def _on_slide_changed(self, current, total):
+        self._current = current
+        self._total = total
+        self.slide_changed.emit(current, total)
+
+    def _on_geometry_changed(self, rect_raw, _):
+        # Worker sends raw QRect(x,y,w,h) and None for screen
+        # We process screen detection here in Main Thread
+        
+        # Fix logic: rect_raw is QRect
+        x, y, w, h = rect_raw.x(), rect_raw.y(), rect_raw.width(), rect_raw.height()
+        
+        # Calculate center
+        cx, cy = x + w // 2, y + h // 2
+        
+        # Find screen
+        screen = QGuiApplication.screenAt(QPoint(cx, cy))
+        if not screen:
+            screen = QGuiApplication.primaryScreen()
             
-            if hwnd and win32gui is not None:
-                # 1. Get Physical Coordinates from Windows API
-                # GetWindowRect returns physical pixels (including shadow if DWM is on, but usually close enough for fullscreen)
-                left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-                
-                p_x = left
-                p_y = top
-                p_w = right - left
-                p_h = bottom - top
+        # Handle DPI if needed. 
+        # Note: Win32 GetWindowRect returns physical pixels.
+        # Qt setGeometry expects logical pixels if High DPI scaling is active?
+        # PySide6 usually handles this well if we use the screen's coordinate system.
+        # But if we are mixing, we might need to adjust.
+        
+        if screen:
+            dpr = screen.devicePixelRatio()
+            # If GetWindowRect returned physical, and Qt expects logical:
+            # l_left = int(x / dpr) ...
+            # But let's assume the Worker sent raw pixels.
+            
+            # NOTE: Previous code had explicit DPR division. Let's restore it.
+            l_left = int(x / dpr)
+            l_top = int(y / dpr)
+            l_width = int(w / dpr)
+            l_height = int(h / dpr)
+            
+            final_rect = QRect(l_left, l_top, l_width, l_height)
+            self.window_geometry_changed.emit(final_rect, screen)
+        else:
+            self.window_geometry_changed.emit(rect_raw, screen)
 
-                # 2. Convert Physical to Logical using Qt's screen awareness
-                # Find which screen the window center is on
-                center_x = p_x + p_w // 2
-                center_y = p_y + p_h // 2
-                
-                screen = QGuiApplication.screenAt(QPoint(center_x, center_y))
-                if not screen:
-                    screen = QGuiApplication.primaryScreen()
-                
-                if screen:
-                    dpr = screen.devicePixelRatio()
-                    # Convert physical to logical
-                    l_left = int(p_x / dpr)
-                    l_top = int(p_y / dpr)
-                    l_width = int(p_w / dpr)
-                    l_height = int(p_h / dpr)
-                else:
-                    # Fallback if no screen found (rare)
-                    l_left, l_top, l_width, l_height = p_x, p_y, p_w, p_h
-                    
-                final_rect = (l_left, l_top, l_width, l_height)
-            else:
-                # Fallback to COM properties (usually points, which map to logical pixels mostly)
-                l_left = int(getattr(ss_win, "Left", 0))
-                l_top = int(getattr(ss_win, "Top", 0))
-                l_width = int(getattr(ss_win, "Width", 0))
-                l_height = int(getattr(ss_win, "Height", 0))
-                final_rect = (l_left, l_top, l_width, l_height)
+    def _update_local_video_state(self, ratio, pos, length):
+        self._video_ratio = ratio
+        self._video_pos = pos
+        self._video_len = length
 
-            if final_rect != self._last_win_rect and l_width > 0 and l_height > 0:
-                self._last_win_rect = final_rect
-                self.window_geometry_changed.emit(l_left, l_top, l_width, l_height)
-        except Exception:
-            pass
+    # --- Getters (Cached) ---
+    def get_page_info(self):
+        return self._current, self._total
 
-    def _update_video_state(self):
-        self._video_position = 0.0
-        self._video_length = 0.0
-        try:
-            pythoncom.CoInitialize()
-            app = self._get_active_app()
-            if app and app.SlideShowWindows.Count > 0:
-                view = app.SlideShowWindows(1).View
-                slide = view.Slide
-                shapes = slide.Shapes
-                count = shapes.Count
-                for i in range(1, count + 1):
-                    shape = shapes.Item(i)
-                    media = getattr(shape, "MediaFormat", None)
-                    if media is None:
-                        continue
-                    length = getattr(media, "Length", None)
-                    position = getattr(media, "Position", None)
-                    if length and float(length) > 0:
-                        self._video_length = float(length)
-                        self._video_position = float(position or 0.0)
-                        break
-        except Exception:
-            pass
-
+    def get_total_slides(self):
+        return self._total
+        
     def get_video_progress(self):
-        if self._video_length and self._video_length > 0:
-            ratio = self._video_position / self._video_length
-            if ratio < 0:
-                ratio = 0.0
-            if ratio > 1:
-                ratio = 1.0
-            return ratio, self._video_position, self._video_length
-        return None, None, None
+        return self._video_ratio, self._video_pos, self._video_len
+

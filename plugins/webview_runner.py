@@ -396,6 +396,41 @@ class Api:
     def get_assets_path(self):
         return os.environ.get("ASSETS_PATH", "")
 
+    def get_timer_state(self):
+        return {
+            "remaining": int(os.environ.get("TIMER_REMAINING", 0)),
+            "is_running": os.environ.get("TIMER_IS_RUNNING", "false") == "true"
+        }
+
+    def start_timer(self, seconds):
+        print(f"TIMER_START:{seconds}")
+        sys.stdout.flush()
+
+    def pause_timer(self):
+        print("TIMER_PAUSE")
+        sys.stdout.flush()
+
+    def resume_timer(self):
+        print("TIMER_RESUME")
+        sys.stdout.flush()
+
+    def stop_timer(self):
+        print("TIMER_STOP")
+        sys.stdout.flush()
+
+    def finish_timer(self):
+        print("TIMER_FINISH")
+        sys.stdout.flush()
+
+    def select_item(self, item):
+        # Generic method to return data to the caller process
+        # item can be any serializable object
+        print(f"SELECTED_ITEM:{json.dumps(item, ensure_ascii=False)}")
+        sys.stdout.flush()
+        if self._window:
+            self._window.destroy()
+        sys.exit(0)
+
 def main():
     # Optimization: Only import what's needed for the specific mode
     if "--dialog" in sys.argv or "--crash-file" in sys.argv:

@@ -571,6 +571,32 @@
       -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>');
     }
 
+    .icon-clock {
+      -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" fill="black"/></svg>');
+    }
+
+    /* --- 时钟 --- */
+    #view-clock {
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .clock-display {
+      font-size: 80px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .date-display {
+      font-size: 20px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
     .dev-watermark {
       position: fixed;
       right: 16px;
@@ -596,6 +622,10 @@
       <div class="nav-item" data-target="view-timer" data-title-key="title.timer">
         <div class="nav-icon icon-timer"></div>
         <span data-i18n="nav.timer">计时</span>
+      </div>
+      <div class="nav-item" data-target="view-clock" data-title-key="title.clock">
+        <div class="nav-icon icon-clock"></div>
+        <span data-i18n="nav.clock">时钟</span>
       </div>
     </div>
 
@@ -645,6 +675,11 @@
           </div>
         </section>
 
+        <section id="view-clock" class="view-section">
+          <div class="clock-display" id="clockDisplay">00:00:00</div>
+          <div class="date-display" id="dateDisplay"></div>
+        </section>
+
         <div class="control-layer">
           <button class="play-btn" id="mainActionBtn">
             <div class="icon-play" id="mainIcon"></div>
@@ -671,8 +706,10 @@
       "zh-CN": {
         "nav.stopwatch": "秒表",
         "nav.timer": "计时",
+        "nav.clock": "时钟",
         "title.stopwatch": "秒表",
         "title.timer": "计时",
+        "title.clock": "当前时间",
         "timer.hour": "时",
         "timer.minute": "分",
         "timer.second": "秒",
@@ -681,13 +718,16 @@
         "dialog.exit.title": "确认退出",
         "dialog.exit.desc": "计时器正在运行，退出将清空当前计时进度。确定要退出吗？",
         "dialog.cancel": "取消",
-        "dialog.confirm": "确定"
+        "dialog.confirm": "确定",
+        "general.devWatermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）"
       },
       "zh-TW": {
         "nav.stopwatch": "秒錶",
         "nav.timer": "計時",
+        "nav.clock": "時鐘",
         "title.stopwatch": "秒錶",
         "title.timer": "計時",
+        "title.clock": "當前時間",
         "timer.hour": "時",
         "timer.minute": "分",
         "timer.second": "秒",
@@ -696,13 +736,16 @@
         "dialog.exit.title": "確認退出",
         "dialog.exit.desc": "計時器正在運行，退出將清空當前計時進度。確定要退出嗎？",
         "dialog.cancel": "取消",
-        "dialog.confirm": "確定"
+        "dialog.confirm": "確定",
+        "general.devWatermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）"
       },
       "ja-JP": {
         "nav.stopwatch": "ストップウォッチ",
         "nav.timer": "タイマー",
+        "nav.clock": "時計",
         "title.stopwatch": "ストップウォッチ",
         "title.timer": "タイマー",
+        "title.clock": "現在時刻",
         "timer.hour": "時",
         "timer.minute": "分",
         "timer.second": "秒",
@@ -711,13 +754,16 @@
         "dialog.exit.title": "終了の確認",
         "dialog.exit.desc": "タイマーが実行中です。終了すると現在の計時はリセットされます。終了してもよろしいですか？",
         "dialog.cancel": "キャンセル",
-        "dialog.confirm": "OK"
+        "dialog.confirm": "OK",
+        "general.devWatermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）"
       },
       "en-US": {
         "nav.stopwatch": "Stopwatch",
         "nav.timer": "Timer",
+        "nav.clock": "Clock",
         "title.stopwatch": "Stopwatch",
         "title.timer": "Timer",
+        "title.clock": "Current Time",
         "timer.hour": "H",
         "timer.minute": "M",
         "timer.second": "S",
@@ -726,7 +772,8 @@
         "dialog.exit.title": "Confirm exit",
         "dialog.exit.desc": "Timer is running. Exiting will clear the current progress. Are you sure?",
         "dialog.cancel": "Cancel",
-        "dialog.confirm": "Confirm"
+        "dialog.confirm": "Confirm",
+        "general.devWatermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})"
       }
     };
 
@@ -875,7 +922,14 @@
         item.classList.add('active');
 
         const targetId = item.dataset.target;
-        currentMode = targetId === 'view-stopwatch' ? 'stopwatch' : 'timer';
+        if (targetId === 'view-stopwatch') {
+          currentMode = 'stopwatch';
+        } else if (targetId === 'view-clock') {
+          currentMode = 'clock';
+          startClock();
+        } else {
+          currentMode = 'timer';
+        }
 
         const targetSec = document.getElementById(targetId);
         targetSec.classList.remove('exit-left');
@@ -990,6 +1044,47 @@
 
     window.addEventListener('pywebviewready', () => {
       initTheme();
+      // Sync timer state from Python
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.get_timer_state) {
+        window.pywebview.api.get_timer_state().then(state => {
+          if (state && state.is_running) {
+            tmRemaining = state.remaining * 1000;
+            tmTotal = state.remaining * 1000; // Simplified, ideally we'd pass total too
+            tmState = 'running';
+            
+            // UI setup for running state
+            pickerUI.style.opacity = '0';
+            pickerUI.style.pointerEvents = 'none';
+            countdownUI.classList.add('active');
+            document.getElementById('totalTimeDisplay').textContent = formatTotalSecondsText(state.remaining);
+            updateCountdownUI();
+            
+            // Start local UI timer
+            if (tmInterval) clearInterval(tmInterval);
+            tmInterval = setInterval(() => {
+              tmRemaining -= 100;
+              if (tmRemaining <= 0) {
+                finishCountdown();
+              } else {
+                updateCountdownUI();
+              }
+            }, 100);
+            updateButtonState();
+          } else if (state && state.remaining > 0) {
+            // Paused state
+            tmRemaining = state.remaining * 1000;
+            tmTotal = state.remaining * 1000;
+            tmState = 'paused';
+            
+            pickerUI.style.opacity = '0';
+            pickerUI.style.pointerEvents = 'none';
+            countdownUI.classList.add('active');
+            document.getElementById('totalTimeDisplay').textContent = formatTotalSecondsText(state.remaining);
+            updateCountdownUI();
+            updateButtonState();
+          }
+        });
+      }
     });
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -1042,7 +1137,8 @@
           if (wm && version) {
             const parts = String(version).trim().split(".");
             if (parts.length >= 2 && parts[parts.length - 1] === "1") {
-              wm.textContent = `开发中版本/技术预览版本\n不保证最终品质 （${version}）`;
+              const tmpl = getText("general.devWatermark") || "开发中版本/技术预览版本\n不保证最终品质 （{version}）";
+              wm.textContent = tmpl.replace("{version}", version);
               wm.style.display = "block";
             } else {
               wm.style.display = "none";
@@ -1060,6 +1156,11 @@
 
       if (totalSec === 0) return; // Don't start if 0
 
+      // Call Python API
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.start_timer(totalSec);
+      }
+
       tmTotal = totalSec * 1000;
       tmRemaining = tmTotal;
 
@@ -1072,8 +1173,6 @@
 
       updateCountdownUI();
 
-      updateCountdownUI();
-
       tmInterval = setInterval(() => {
         tmRemaining -= 100;
         if (tmRemaining <= 0) {
@@ -1084,7 +1183,6 @@
       }, 100);
 
       updateButtonState();
-      if (bridge && bridge.set_running) bridge.set_running(true);
     }
 
     function updateCountdownUI() {
@@ -1097,12 +1195,23 @@
     function pauseCountdown() {
       clearInterval(tmInterval);
       tmState = 'paused';
+      
+      // Call Python API
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.pause_timer();
+      }
+      
       updateButtonState();
-      if (bridge && bridge.set_running) bridge.set_running(false);
     }
 
     function resumeCountdown() {
       tmState = 'running';
+      
+      // Call Python API
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.resume_timer();
+      }
+
       tmInterval = setInterval(() => {
         tmRemaining -= 100;
         if (tmRemaining <= 0) {
@@ -1112,7 +1221,6 @@
         }
       }, 100);
       updateButtonState();
-      if (bridge && bridge.set_running) bridge.set_running(true);
     }
 
     function finishCountdown() {
@@ -1120,6 +1228,15 @@
       tmRemaining = 0;
       updateCountdownUI();
       tmState = 'finished';
+
+      // Call Python API
+      if (window.pywebview && window.pywebview.api) {
+        if (window.pywebview.api.finish_timer) {
+          window.pywebview.api.finish_timer();
+        } else {
+          window.pywebview.api.stop_timer();
+        }
+      }
 
       countdownUI.classList.remove('active');
       bellUI.style.display = 'flex';
@@ -1131,7 +1248,6 @@
         });
       }
 
-      if (bridge && bridge.set_running) bridge.set_running(false);
       updateButtonState();
     }
 
@@ -1139,13 +1255,53 @@
       clearInterval(tmInterval);
       tmState = 'picker';
 
+      // Call Python API
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.stop_timer();
+      }
+
       bellUI.style.display = 'none';
       countdownUI.classList.remove('active');
       pickerUI.style.opacity = '1';
       pickerUI.style.pointerEvents = 'auto';
 
-      if (bridge && bridge.set_running) bridge.set_running(false);
       updateButtonState();
+    }
+
+    // --- Clock Logic ---
+    let clockInterval;
+    const clockDisplay = document.getElementById('clockDisplay');
+    const dateDisplay = document.getElementById('dateDisplay');
+
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours().toString().padStart(2, '0');
+      const m = now.getMinutes().toString().padStart(2, '0');
+      const s = now.getSeconds().toString().padStart(2, '0');
+      clockDisplay.textContent = `${h}:${m}:${s}`;
+      
+      const y = now.getFullYear();
+      const mo = (now.getMonth() + 1).toString().padStart(2, '0');
+      const d = now.getDate().toString().padStart(2, '0');
+      
+      const weekdays = {
+        "zh-CN": ["周日", "周一", "周二", "周三", "周四", "周五", "周六"],
+        "zh-TW": ["週日", "週一", "週二", "週三", "週四", "週五", "週六"],
+        "ja-JP": ["日曜日", "月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "土曜日"],
+        "en-US": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+      };
+      // Fallback for other languages
+      const lang = currentLanguage in weekdays ? currentLanguage : "zh-CN";
+      const w = weekdays[lang][now.getDay()];
+      
+      dateDisplay.textContent = `${y}/${mo}/${d} ${w}`;
+    }
+
+    function startClock() {
+      updateClock();
+      if (!clockInterval) {
+        clockInterval = setInterval(updateClock, 1000);
+      }
     }
 
     mainBtn.addEventListener('click', () => {
@@ -1163,7 +1319,7 @@
           clearInterval(swInterval);
           if (window.pywebview && window.pywebview.api.set_running) window.pywebview.api.set_running(false);
         }
-      } else {
+      } else if (currentMode === 'timer') {
         // Timer Logic
         if (tmState === 'picker') {
           startCountdown();
@@ -1180,9 +1336,15 @@
 
     // Override updateButtonState to handle Timer states
     function updateButtonState() {
+      if (currentMode === 'clock') {
+        mainBtn.style.display = 'none';
+        return;
+      }
+      mainBtn.style.display = 'flex';
+
       if (currentMode === 'stopwatch') {
         mainBtn.innerHTML = swRunning ? '<div class="icon-pause"></div>' : '<div class="icon-play"></div>';
-      } else {
+      } else if (currentMode === 'timer') {
         if (tmState === 'running') {
           mainBtn.innerHTML = '<div class="icon-pause"></div>';
         } else if (tmState === 'finished') {

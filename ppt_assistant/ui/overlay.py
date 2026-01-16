@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QApplication, QLabel, QPushButton, QSwipeGesture, QGestureEvent, QGridLayout, QStyleOption, QStyle, QGraphicsDropShadowEffect, QMenu
-from PySide6.QtCore import Qt, Signal, QSize, QPoint, QEvent, QTimer, QTime
-from PySide6.QtGui import QColor, QIcon, QPainter, QBrush, QPen, QPixmap, QGuiApplication, QFont, QPalette, QLinearGradient, QAction
+from PySide6.QtCore import Qt, Signal, QSize, QPoint, QEvent, QTimer, QTime, QDateTime, QLocale, QThread, QObject, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QRect
+from PySide6.QtGui import QColor, QIcon, QPainter, QBrush, QPen, QPixmap, QGuiApplication, QFont, QPalette, QLinearGradient, QAction, QRegion
 from PySide6.QtSvg import QSvgRenderer
 import os
 import importlib.util
@@ -8,7 +8,11 @@ import sys
 import tempfile
 import json
 import subprocess
+import time
+import math
+import shiboken6
 from ppt_assistant.core.config import cfg, SETTINGS_PATH
+from ppt_assistant.core.timer_manager import TimerManager
 from qfluentwidgets import FluentWidget, FluentIcon as FIF, BodyLabel, IconWidget, themeColor
 
 try:
@@ -46,6 +50,7 @@ _TRANSLATIONS = {
         "toolbar.page": "页码",
         "toolbar.theme_colors": "主题颜色",
         "toolbar.standard_colors": "标准颜色",
+        "overlay.dev_watermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）",
     },
     "zh-TW": {
         "status.media_length": "媒體時長",
@@ -59,6 +64,7 @@ _TRANSLATIONS = {
         "toolbar.page": "頁碼",
         "toolbar.theme_colors": "主題顏色",
         "toolbar.standard_colors": "标准颜色",
+        "overlay.dev_watermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）",
     },
     "ja-JP": {
         "status.media_length": "メディア長さ",
@@ -72,6 +78,7 @@ _TRANSLATIONS = {
         "toolbar.page": "ページ番号",
         "toolbar.theme_colors": "テーマの色",
         "toolbar.standard_colors": "標準の色",
+        "overlay.dev_watermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）",
     },
     "en-US": {
         "status.media_length": "Media duration",
@@ -85,6 +92,7 @@ _TRANSLATIONS = {
         "toolbar.page": "Page number",
         "toolbar.theme_colors": "Theme Colors",
         "toolbar.standard_colors": "Standard Colors",
+        "overlay.dev_watermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})",
     },
 }
 
@@ -120,60 +128,158 @@ def _t(key: str) -> str:
     return default.get(key, key)
 
 
+class GlobalIconCache:
+    _cache = {}
+
+    @classmethod
+    def get(cls, key):
+        return cls._cache.get(key)
+
+    @classmethod
+    def set(cls, key, pixmap):
+        cls._cache[key] = pixmap
+
+class NetworkCheckThread(QThread):
+    status_changed = Signal(str)
+
+    def run(self):
+        while not self.isInterruptionRequested():
+            kind = "offline"
+            if psutil is not None:
+                try:
+                    stats = psutil.net_if_stats()
+                    for name, st in stats.items():
+                        if not st.isup:
+                            continue
+                        lname = name.lower()
+                        if "wi-fi" in lname or "wifi" in lname or "wlan" in lname:
+                            kind = "wifi"
+                            break
+                        if "ethernet" in lname or "eth" in lname or "lan" in lname:
+                            kind = "wired"
+                    if kind == "offline" and any(st.isup for st in stats.values()):
+                        kind = "wired"
+                except Exception:
+                    pass
+            
+            if kind == "offline":
+                try:
+                    # Non-blocking check in thread
+                    if sys.platform == "win32":
+                        startupinfo = subprocess.STARTUPINFO()
+                        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                        out = subprocess.check_output(
+                            ["netsh", "wlan", "show", "interfaces"],
+                            encoding="utf-8",
+                            errors="ignore",
+                            startupinfo=startupinfo
+                        )
+                        if "state" in out.lower() and "connected" in out.lower():
+                            kind = "wifi"
+                except Exception:
+                    pass
+            
+            self.status_changed.emit(kind)
+            self.sleep(5)
+
 class StatusBarWidget(QFrame):
     is_light_changed = Signal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(26)
+        self.setFixedHeight(30)
         self._is_light = False
         self._monitor = None
         self._network_kind = "offline"
         self._volume_supported = False
+        self._timer_manager = TimerManager()
         self._build_ui()
-        self._clock_timer = QTimer(self)
-        self._clock_timer.timeout.connect(self._update_time)
-        self._clock_timer.start(1000)
-        self._color_timer = QTimer(self)
-        self._color_timer.timeout.connect(self._update_color_from_screen)
-        self._color_timer.start(2000)
-        self._video_timer = QTimer(self)
-        self._video_timer.timeout.connect(self._update_video)
-        self._video_timer.start(500)
-        self._network_timer = QTimer(self)
-        self._network_timer.timeout.connect(self._update_network)
-        self._network_timer.start(5000)
-        self._volume_timer = QTimer(self)
-        self._volume_timer.timeout.connect(self._update_volume)
-        self._volume_timer.start(1000)
+        
+        # Single master timer for UI updates
+        self._master_timer = QTimer(self)
+        self._master_timer.timeout.connect(self._on_master_tick)
+        self._master_timer.start(500) # 2Hz update rate
+        
+        # Network check in background thread
+        self._network_thread = NetworkCheckThread(self)
+        self._network_thread.status_changed.connect(self._on_network_status_changed)
+        self._network_thread.start()
+
+        # Connect to timer manager
+        self._timer_manager.updated.connect(self._update_countdown)
+        self._timer_manager.state_changed.connect(self._on_timer_state_changed)
+
         self._update_time()
         self._update_palette()
         self._update_volume()
+        self._on_timer_state_changed(self._timer_manager.is_running)
+
+    def _on_master_tick(self):
+        self._update_time()
+        self._update_video()
+        self._update_volume()
+        # Color sampling disabled as per user request
+
+    def _on_network_status_changed(self, kind):
+        self._network_kind = kind
+        if kind == "wifi":
+            self.net_icon.setIcon(FIF.WIFI)
+        elif kind == "wired":
+            icon = getattr(FIF, "ETHERNET", FIF.WIFI)
+            self.net_icon.setIcon(icon)
+        else:
+            self.net_icon.setIcon(FIF.WIFI)
+
+    def closeEvent(self, event):
+        if self._network_thread.isRunning():
+            self._network_thread.requestInterruption()
+            self._network_thread.wait()
+        super().closeEvent(event)
 
     def _build_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 4, 12, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setSpacing(12)
 
         self.time_label = QLabel("", self)
         self.time_label.setObjectName("TimeLabel")
         layout.addWidget(self.time_label)
 
-        self.center_widget = QWidget(self)
-        center_layout = QHBoxLayout(self.center_widget)
-        center_layout.setContentsMargins(0, 0, 0, 0)
-        center_layout.setSpacing(6)
-        self.progress_value = QLabel("", self.center_widget)
-        self.progress_value.setObjectName("ProgressValue")
-        self.progress_caption = QLabel(_t("status.media_length"), self.center_widget)
-        self.progress_caption.setObjectName("ProgressCaption")
-        self.progress_caption.hide()
-        self.progress_value.hide()
-        center_layout.addWidget(self.progress_value)
-        center_layout.addWidget(self.progress_caption, 0, Qt.AlignBottom)
+        # Countdown
+        self.countdown_container = QWidget(self)
+        countdown_layout = QHBoxLayout(self.countdown_container)
+        countdown_layout.setContentsMargins(0, 0, 0, 0)
+        countdown_layout.setSpacing(8)
+        self.countdown_separator = QFrame(self)
+        self.countdown_separator.setFixedWidth(1)
+        self.countdown_separator.setFixedHeight(12)
+        self.countdown_separator.setObjectName("Separator")
+        self.countdown_label = QLabel("", self)
+        self.countdown_label.setObjectName("CountdownLabel")
+        countdown_layout.addWidget(self.countdown_separator)
+        countdown_layout.addWidget(self.countdown_label)
+        layout.addWidget(self.countdown_container)
+        self.countdown_container.hide()
 
-        layout.addStretch(1)
-        layout.addWidget(self.center_widget)
+        # Video progress
+        self.video_container = QWidget(self)
+        video_layout = QHBoxLayout(self.video_container)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+        video_layout.setSpacing(8)
+        self.separator = QFrame(self)
+        self.separator.setFixedWidth(1)
+        self.separator.setFixedHeight(12)
+        self.separator.setObjectName("Separator")
+        self.progress_value = QLabel("", self)
+        self.progress_value.setObjectName("ProgressValue")
+        self.progress_caption = QLabel(_t("status.media_length"), self)
+        self.progress_caption.setObjectName("ProgressCaption")
+        video_layout.addWidget(self.separator)
+        video_layout.addWidget(self.progress_value)
+        video_layout.addWidget(self.progress_caption)
+        layout.addWidget(self.video_container)
+        self.video_container.hide()
+
         layout.addStretch(1)
 
         self.net_icon = IconWidget(FIF.WIFI, self)
@@ -184,34 +290,47 @@ class StatusBarWidget(QFrame):
         self.volume_icon.setFixedSize(18, 18)
         layout.addWidget(self.volume_icon)
 
+    def _update_countdown(self, seconds):
+        if seconds > 0:
+            self.countdown_label.setText(f"倒计时 {self._timer_manager.get_remaining_time_str()}")
+            self.countdown_container.show()
+        else:
+            self.countdown_container.hide()
+
+    def _on_timer_state_changed(self, is_running):
+        if is_running:
+            self.countdown_container.show()
+            self._update_countdown(self._timer_manager.remaining_seconds)
+        else:
+            self.countdown_container.hide()
+
     def _update_time(self):
-        self.time_label.setText(QTime.currentTime().toString("HH:mm"))
+        now = QDateTime.currentDateTime()
+        locale = QLocale(QLocale.Chinese, QLocale.China)
+        time_str = locale.toString(now, "H:mm M月d日 ddd")
+        self.time_label.setText(time_str)
 
     def set_monitor(self, monitor):
         self._monitor = monitor
 
     def _update_video(self):
         if not self._monitor:
-            self.progress_caption.hide()
-            self.progress_value.hide()
+            self.video_container.hide()
             return
         try:
             ratio, pos, length = self._monitor.get_video_progress()
         except Exception:
-            self.progress_caption.hide()
-            self.progress_value.hide()
+            self.video_container.hide()
             return
         if length is None or length <= 0:
-            self.progress_caption.hide()
-            self.progress_value.hide()
+            self.video_container.hide()
             return
         length_sec = length or 0.0
         if length_sec > 36000:
             length_sec = length_sec / 1000.0
         total_text = self._format_seconds(length_sec)
         self.progress_value.setText(total_text)
-        self.progress_caption.show()
-        self.progress_value.show()
+        self.video_container.show()
 
     def _format_seconds(self, value):
         secs = int(float(value))
@@ -224,6 +343,12 @@ class StatusBarWidget(QFrame):
     def _update_color_from_screen(self):
         # Disabled adaptive logic as per user request for forced light theme
         pass
+
+    def cleanup(self):
+        if hasattr(self, "_network_thread") and self._network_thread.isRunning():
+            self._network_thread.requestInterruption()
+            self._network_thread.quit()
+            self._network_thread.wait()
 
     def _update_network(self):
         kind = "offline"
@@ -271,32 +396,30 @@ class StatusBarWidget(QFrame):
 
     def _update_palette(self, is_light=False):
         self._is_light = is_light
-        if is_light:
-            fg = "#191919"
-            bg = "rgba(255, 255, 255, 0.8)"
-            border = "rgba(0, 0, 0, 0.1)"
-        else:
-            fg = "#FFFFFF"
-            bg = "rgba(28, 28, 30, 0.82)"
-            border = "rgba(255, 255, 255, 0.15)"
+        fg = "#FFFFFF"
+        bg = "#40000000"
             
         self.setStyleSheet(
             f"""
             StatusBarWidget {{
                 background-color: {bg};
-                border-bottom: 0.5px solid {border};
+                border: none;
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-                font-size: 12px;
+                font-family: 'MiSans VF', 'MiSans', 'Segoe UI', sans-serif;
                 background: transparent;
             }}
-            QLabel#TimeLabel, QLabel#ProgressValue {{
-                font-weight: 900;
+            QLabel#TimeLabel {{
+                font-size: 13px;
+                font-weight: bold;
             }}
-            QLabel#ProgressCaption {{
-                font-size: 9px;
+            QLabel#ProgressValue, QLabel#ProgressCaption, QLabel#CountdownLabel {{
+                font-size: 11px;
+                font-weight: 500;
+            }}
+            QFrame#Separator {{
+                background-color: rgba(255, 255, 255, 0.3);
             }}
             IconWidget {{
                 color: {fg};
@@ -604,7 +727,18 @@ class CustomToolButton(QFrame):
         if not os.path.exists(icon_path):
             return
             
-        color = QColor(255, 255, 255)
+        color_hex = "#FFFFFF"
+        if self.is_exit:
+            color_hex = "#FF453A"
+
+        cache_key = (self.icon_name, color_hex, s)
+        cached_pixmap = GlobalIconCache.get(cache_key)
+        if cached_pixmap:
+            self.icon_label.setPixmap(cached_pixmap)
+            self.icon_label.setFixedSize(s, s)
+            return
+            
+        color = QColor(color_hex)
         renderer = QSvgRenderer(icon_path)
         if not renderer.isValid():
             return
@@ -618,10 +752,10 @@ class CustomToolButton(QFrame):
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
         
         if self.is_exit:
-            # Render icon with red color directly, no background circle
+            # Render icon with red color directly
             renderer.render(painter)
             painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
-            painter.fillRect(pixmap.rect(), QColor("#FF453A"))
+            painter.fillRect(pixmap.rect(), color)
         else:
             # Normal icon colorization
             renderer.render(painter)
@@ -631,6 +765,8 @@ class CustomToolButton(QFrame):
         painter.end()
         
         scaled_pixmap = pixmap.scaled(s, s, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        GlobalIconCache.set(cache_key, scaled_pixmap)
+        
         self.icon_label.setPixmap(scaled_pixmap)
         self.icon_label.setFixedSize(s, s)
 
@@ -754,30 +890,52 @@ class SlidePreviewPopup(FluentWidget):
             return
         temp_dir = os.path.join(tempfile.gettempdir(), "kazuha_ppt_thumbs")
         os.makedirs(temp_dir, exist_ok=True)
+        
+        self.slide_map.clear()
+        
         for slide_num in range(1, total + 1):
             path = os.path.join(temp_dir, f"slide_{slide_num}.png")
-            try:
-                if hasattr(self.monitor, "export_slide_thumbnail"):
-                    self.monitor.export_slide_thumbnail(slide_num, path)
-            except Exception:
-                continue
-            pix = QPixmap(path)
-            if pix.isNull():
-                continue
+            
+            # Create button first with placeholder
             btn = QPushButton(self.card_container)
             btn.setFlat(True)
-            btn.setIcon(QIcon(pix))
-            btn.setCursor(Qt.PointingHandCursor)
+            # Set a simple placeholder or empty icon
             btn.setStyleSheet(
                 "QPushButton { border-radius: 14px; border: 1px solid rgba(0,0,0,0.05); background-color: #F5F6F8; }"
                 "QPushButton:hover { border: 1px solid rgba(50,117,245,0.5); background-color: #FFFFFF; }"
             )
+            
+            # Check if exists in cache/disk first for speed
+            if os.path.exists(path):
+                 pix = QPixmap(path)
+                 if not pix.isNull():
+                     btn.setIcon(QIcon(pix))
+            
+            # Request update/export
+            try:
+                if hasattr(self.monitor, "export_slide_thumbnail"):
+                    self.monitor.export_slide_thumbnail(slide_num, path)
+            except Exception:
+                pass
+
             index_in_row = len(self.cards)
             btn.clicked.connect(lambda _, idx=index_in_row: self._on_card_clicked(idx))
             self.card_layout.addWidget(btn)
             self.cards.append(btn)
             self.slide_indices.append(slide_num)
+            self.slide_map[slide_num] = btn
+            
         self._update_cards()
+
+    def _on_thumbnail_generated(self, index, path):
+        if index in self.slide_map:
+            btn = self.slide_map[index]
+            if os.path.exists(path):
+                pix = QPixmap(path)
+                if not pix.isNull():
+                    w, h = 180, 110
+                    btn.setIcon(QIcon(pix))
+                    btn.setIconSize(QSize(w, h))
 
     def _update_cards(self):
         for idx, btn in enumerate(self.cards):
@@ -858,6 +1016,91 @@ class SlidePreviewPopup(FluentWidget):
                         return True
         return super().event(e)
 
+class IndeterminateSpinner(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self.setFixedSize(27, 27)
+
+    def start(self):
+        if not self._timer.isActive():
+            self._timer.start(16)
+
+    def stop(self):
+        if self._timer.isActive():
+            self._timer.stop()
+
+    def _tick(self):
+        self._angle = (self._angle + 5) % 360
+        self.update()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.start()
+
+    def hideEvent(self, event):
+        self.stop()
+        super().hideEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        center_x = self.width() / 2
+        center_y = self.height() / 2
+
+        ring_color = QColor("#d9d9d9")
+        pen = QPen(ring_color)
+        pen.setWidth(3)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+
+        ring_radius = 10
+        painter.drawEllipse(QPoint(int(center_x), int(center_y)), ring_radius, ring_radius)
+
+        dot_radius = 2.5
+        orbit_radius = ring_radius - 3 - dot_radius + 1
+        angle_rad = math.radians(self._angle)
+        dot_x = center_x + orbit_radius * math.cos(angle_rad)
+        dot_y = center_y + orbit_radius * math.sin(angle_rad)
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(ring_color))
+        painter.drawEllipse(QPoint(int(dot_x), int(dot_y)), dot_radius, dot_radius)
+
+class ReloadMask(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet(
+            "ReloadMask { background-color: rgba(0, 0, 0, 110); }"
+            "QFrame { background-color: rgba(30, 30, 30, 220); border-radius: 16px; }"
+            "QLabel { color: rgba(255, 255, 255, 0.92); font-size: 14px; font-weight: 500; font-family: 'MiSans', 'Segoe UI', sans-serif; }"
+        )
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        outer.setAlignment(Qt.AlignCenter)
+
+        card = QFrame(self)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(22, 18, 22, 18)
+        card_layout.setSpacing(12)
+        card_layout.setAlignment(Qt.AlignCenter)
+
+        self.spinner = IndeterminateSpinner(card)
+        card_layout.addWidget(self.spinner, 0, Qt.AlignCenter)
+
+        self.label = QLabel("正在重载页面", card)
+        self.label.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(self.label, 0, Qt.AlignCenter)
+
+        outer.addWidget(card, 0, Qt.AlignCenter)
+
 class OverlayWindow(QWidget):
     request_next = Signal()
     request_prev = Signal()
@@ -871,9 +1114,12 @@ class OverlayWindow(QWidget):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        # Add this attribute to fix UpdateLayeredWindowIndirect error on some systems
         self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setAttribute(Qt.WA_PaintOnScreen, False)
+        
+        scr = QGuiApplication.primaryScreen()
+        if scr:
+            self.setGeometry(scr.geometry())
         
         icon_path = os.path.join(ICON_DIR, "overlayicon.png")
         if os.path.exists(icon_path):
@@ -883,12 +1129,17 @@ class OverlayWindow(QWidget):
         self.status_bar = None
         self.plugins = []
         self.monitor = None
+        self.slide_widgets = {} # { slide_index: [widgets] }
+        self._current_page_idx = 1
         self.slide_preview = None
         self._dev_watermark = None
+        self._wheel_acc = 0 # For OverlayWindow scroll handling
+        self._reload_mask = None
+        self._pending_timers = []
         version = _get_app_version()
         if _is_dev_preview_version(version):
             label = QLabel(self)
-            label.setText(f"开发中版本/技术预览版本\n不保证最终品质 （{version}）")
+            label.setText(_t("overlay.dev_watermark").format(version=version))
             font = QFont()
             font.setPixelSize(11)
             label.setFont(font)
@@ -906,11 +1157,54 @@ class OverlayWindow(QWidget):
         if self.monitor:
             return
 
+    def update_geometry(self, rect, screen):
+        target_screen = screen
+        if not target_screen and rect and not rect.isEmpty():
+            s = QGuiApplication.screenAt(rect.center())
+            if not s:
+                s = QGuiApplication.primaryScreen()
+            target_screen = s
+        if target_screen:
+            geo = target_screen.geometry()
+            if not geo.isEmpty():
+                if self.windowHandle():
+                    self.windowHandle().setScreen(target_screen)
+                self.setGeometry(geo)
+        QTimer.singleShot(0, self.update_layout)
+
     def set_monitor(self, monitor):
         self.monitor = monitor
         if self.status_bar:
             self.status_bar.set_monitor(monitor)
         self.bind_monitor_signals()
+
+    def show_reload_mask(self, text="正在重载页面"):
+        if self._reload_mask is None:
+            self._reload_mask = ReloadMask(self)
+            self._reload_mask.setGeometry(self.rect())
+        if text:
+            self._reload_mask.label.setText(str(text))
+        self._reload_mask.show()
+        self._reload_mask.raise_()
+        self._reload_mask.activateWindow()
+
+    def hide_reload_mask(self):
+        if self._reload_mask is not None:
+            self._reload_mask.hide()
+
+    def _defer(self, callback):
+        t = QTimer(self)
+        t.setSingleShot(True)
+        self._pending_timers.append(t)
+        def _run():
+            try:
+                callback()
+            finally:
+                if t in self._pending_timers:
+                    self._pending_timers.remove(t)
+                t.deleteLater()
+        t.timeout.connect(_run)
+        t.start(0)
 
     def show_slide_preview(self, global_pos=None):
         if not self.monitor:
@@ -1001,72 +1295,148 @@ class OverlayWindow(QWidget):
         self.toolbar.eraser_clicked.connect(self.request_ptr_eraser.emit)
         self.toolbar.pen_color_changed.connect(self.request_pen_color.emit)
         
-        self.left_flipper = PageFlipWidget("Left", self, height=self.toolbar_height)
-        self.left_flipper.clicked_prev.connect(self.request_prev.emit)
-        self.left_flipper.clicked_next.connect(self.request_next.emit)
-        self.left_flipper.page_clicked.connect(self.show_slide_preview)
+        self._init_flippers()
         
-        self.right_flipper = PageFlipWidget("Right", self, height=self.toolbar_height)
-        self.right_flipper.clicked_prev.connect(self.request_prev.emit)
-        self.right_flipper.clicked_next.connect(self.request_next.emit)
-        self.right_flipper.page_clicked.connect(self.show_slide_preview)
+        self.update_layout()
 
-        # Connect adaptive theme signal
-        if self.status_bar:
-            self.status_bar.is_light_changed.connect(self._on_theme_changed)
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.update_layout()
+        # Animation disabled for instant feedback
+        # self.start_fly_in_animation()
+
+    def hide(self):
+        super().hide()
+        # Animation disabled for instant feedback
+        # if not self.isVisible():
+        #     super().hide()
+        #     return
+        # self.start_fly_out_animation()
+
+    def start_fly_in_animation(self):
+        if hasattr(self, "_anim_group") and self._anim_group.state() == QParallelAnimationGroup.Running:
+            self._anim_group.stop()
+            
+        self._is_animating = False
+        # Ensure layout is up to date to get correct end positions
+        self.update_layout()
+        self._is_animating = True
         
-        self.left_flipper.show()
-        self.right_flipper.show()
-        self.toolbar.show()
+        self._anim_group = QParallelAnimationGroup(self)
         
-        self._update_theme_from_cfg()
-        cfg.themeMode.valueChanged.connect(self._update_theme_from_cfg)
-        cfg.showToolbarText.valueChanged.connect(self.update_layout)
+        def add_anim(widget, start_pos, end_pos):
+            if not widget or not widget.isVisible():
+                return
+            widget.move(start_pos)
+            anim = QPropertyAnimation(widget, b"pos")
+            anim.setDuration(400)
+            anim.setStartValue(start_pos)
+            anim.setEndValue(end_pos)
+            anim.setEasingCurve(QEasingCurve.OutCubic)
+            self._anim_group.addAnimation(anim)
 
-    def _update_theme_from_cfg(self):
-        theme = cfg.themeMode.value
-        if theme == "Auto":
-            from qfluentwidgets import isDarkTheme
-            is_light = not isDarkTheme()
-        else:
-            is_light = (theme == "Light")
-        self._on_theme_changed(is_light)
+        # 1. Status Bar (Fly from Top)
+        if self.status_bar and self.status_bar.isVisible():
+            end_pos = self.status_bar.pos()
+            start_pos = QPoint(end_pos.x(), -self.status_bar.height())
+            add_anim(self.status_bar, start_pos, end_pos)
+            
+        # 2. Bottom Widgets (Fly from Bottom)
+        bottom_widgets = []
+        if hasattr(self, "toolbar"): bottom_widgets.append(self.toolbar)
+        if hasattr(self, "left_flipper"): bottom_widgets.append(self.left_flipper)
+        if hasattr(self, "right_flipper"): bottom_widgets.append(self.right_flipper)
+        if hasattr(self, "_dev_watermark"): bottom_widgets.append(self._dev_watermark)
+        
+        h = self.height()
+        for w in bottom_widgets:
+            if w and w.isVisible():
+                end_pos = w.pos()
+                start_pos = QPoint(end_pos.x(), h)
+                add_anim(w, start_pos, end_pos)
+                
+        self._anim_group.finished.connect(lambda: setattr(self, "_is_animating", False))
+        self._anim_group.start()
 
-    def _on_theme_changed(self, is_light):
-        self._is_light = is_light
-        self.toolbar.update_style(is_light)
-        self.left_flipper.update_style(is_light)
-        self.right_flipper.update_style(is_light)
-        if self.status_bar:
-            self.status_bar._update_palette(is_light)
+    def start_fly_out_animation(self):
+        if hasattr(self, "_anim_group") and self._anim_group.state() == QParallelAnimationGroup.Running:
+            self._anim_group.stop()
+            
+        self._is_animating = True
+        self._anim_group = QParallelAnimationGroup(self)
+        
+        def add_anim(widget, target_y):
+            if not widget or not widget.isVisible():
+                return
+            anim = QPropertyAnimation(widget, b"pos")
+            anim.setDuration(300)
+            anim.setEndValue(QPoint(widget.x(), target_y))
+            anim.setEasingCurve(QEasingCurve.InCubic)
+            self._anim_group.addAnimation(anim)
 
+        # 1. Status Bar
+        if self.status_bar and self.status_bar.isVisible():
+            add_anim(self.status_bar, -self.status_bar.height())
+            
+        # 2. Bottom Widgets
+        bottom_widgets = []
+        if hasattr(self, "toolbar"): bottom_widgets.append(self.toolbar)
+        if hasattr(self, "left_flipper"): bottom_widgets.append(self.left_flipper)
+        if hasattr(self, "right_flipper"): bottom_widgets.append(self.right_flipper)
+        if hasattr(self, "_dev_watermark"): bottom_widgets.append(self._dev_watermark)
+        
+        h = self.height()
+        for w in bottom_widgets:
+            add_anim(w, h)
+            
+        def on_finished():
+            self._is_animating = False
+            super(OverlayWindow, self).hide()
+            
+        self._anim_group.finished.connect(on_finished)
+        self._anim_group.start()
+
+    def cleanup(self):
+        if hasattr(self, 'status_bar') and self.status_bar:
+            self.status_bar.cleanup()
+    
     def _on_status_bar_visibility_changed(self, visible: bool):
         if visible and getattr(self, "_has_status_plugin", False):
             if self.status_bar is None:
                 self.status_bar = StatusBarWidget(self)
-                if self.monitor:
-                    self.status_bar.set_monitor(self.monitor)
             self.status_bar.show()
         else:
             if self.status_bar is not None:
                 self.status_bar.hide()
         self.update_layout()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        self.update_layout()
-
-    def cleanup(self):
-        """Clean up resources and terminate plugins."""
-        for plugin in self.plugins:
-            try:
-                plugin.terminate()
-            except Exception as e:
-                print(f"Error terminating plugin {plugin.get_name()}: {e}")
-
     def update_toolbar(self):
         if hasattr(self, 'toolbar') and self.toolbar:
-            self.toolbar.refresh_dynamic_tools()
+            self.show_reload_mask("正在重载页面")
+            def _do_refresh():
+                if not shiboken6.isValid(self.toolbar):
+                    return
+                self.toolbar.refresh_dynamic_tools()
+                self.hide_reload_mask()
+            self._defer(_do_refresh)
+    
+    def _init_flippers(self):
+        # layout_mode = cfg.toolbarLayout.value
+        # Force VerticalSplit layout as per user request
+        orientation = "Vertical"
+        if hasattr(self, "left_flipper") and self.left_flipper:
+            self.left_flipper.deleteLater()
+        if hasattr(self, "right_flipper") and self.right_flipper:
+            self.right_flipper.deleteLater()
+        self.left_flipper = PageFlipWidget("Left", self, height=self.toolbar_height, orientation=orientation)
+        self.right_flipper = PageFlipWidget("Right", self, height=self.toolbar_height, orientation=orientation)
+        self.left_flipper.clicked_prev.connect(self.request_prev.emit)
+        self.left_flipper.clicked_next.connect(self.request_next.emit)
+        self.right_flipper.clicked_prev.connect(self.request_prev.emit)
+        self.right_flipper.clicked_next.connect(self.request_next.emit)
+        
+        self.left_flipper.show()
+        self.right_flipper.show()
 
     def update_layout(self):
         # Prevent crash during initialization
@@ -1074,60 +1444,186 @@ class OverlayWindow(QWidget):
             return
         if not hasattr(self, "left_flipper") or not hasattr(self, "right_flipper"):
             return
-            
-        w = self.width()
-        h = self.height()
-        margin = 16
-        
-        if w <= 100 or h <= 100:
+        if not hasattr(self, "_layout_updating"):
+            self._layout_updating = False
+        if self._layout_updating or getattr(self, "_is_animating", False):
+            return
+        self._layout_updating = True
+        try:
+            w = self.width()
+            h = self.height()
+            margin = 16
+
+            if w <= 100 or h <= 100:
+                return
+
+            self.toolbar.adjustSize()
+            tb_size = self.toolbar.size()
+            tb_w = tb_size.width()
+            tb_h = tb_size.height()
+            if tb_h < 32 or tb_h > 240:
+                tb_h = max(self.toolbar.sizeHint().height(), 45)
+
+            self.left_flipper.setFixedSize(tb_h, 160)
+            self.right_flipper.setFixedSize(tb_h, 160)
+
+            self.left_flipper.h_val = tb_h
+            self.right_flipper.h_val = tb_h
+            self.left_flipper.update_style(getattr(self, "_is_light", False))
+            self.right_flipper.update_style(getattr(self, "_is_light", False))
+
+            y_pos = (h - 160) // 2
+            self.toolbar.move((w - tb_w) // 2, h - tb_h - 14)
+            self.left_flipper.move(margin, y_pos)
+            self.right_flipper.move(w - self.right_flipper.width() - margin, y_pos)
+
+            self.left_flipper.show()
+            self.right_flipper.show()
+
+            if self.status_bar and self.status_bar.isVisible():
+                self.status_bar.setFixedWidth(w)
+                self.status_bar.move(0, 0)
+
+            if self._dev_watermark:
+                self._dev_watermark.move(w - self._dev_watermark.width() - 16, h - self._dev_watermark.height() - 12)
+
+            if self._reload_mask is not None and self._reload_mask.isVisible():
+                self._reload_mask.setGeometry(self.rect())
+                self._reload_mask.raise_()
+
+            self.update_mask()
+        finally:
+            self._layout_updating = False
+
+    def update_mask(self):
+        # Optimization: Mask out empty areas to reduce DWM composition overhead
+        # This makes the "transparent" pixels truly pass-through for performance
+        if not self.isVisible():
             return
 
-        # Let the toolbar determine its own ideal size based on content
-        self.toolbar.adjustSize()
-        tb_size = self.toolbar.size()
-        tb_w = tb_size.width()
-        tb_h = tb_size.height()
+        if self._reload_mask is not None and self._reload_mask.isVisible():
+            self.clearMask()
+            return
+            
+        region = QRegion()
         
-        # Flipper height matches toolbar height for consistency
-        flipper_w = 140
-        self.left_flipper.setFixedSize(flipper_w, tb_h)
-        self.right_flipper.setFixedSize(flipper_w, tb_h)
-        # Re-trigger style update to ensure radius is correct
-        self.left_flipper.h_val = tb_h
-        self.right_flipper.h_val = tb_h
-        self.left_flipper.update_style(getattr(self, "_is_light", False))
-        self.right_flipper.update_style(getattr(self, "_is_light", False))
+        # Helper to add widget geometry with margin for shadows
+        def add_widget(w, margin=40):
+            if w and w.isVisible():
+                geo = w.geometry()
+                # Expand for shadow (approximate)
+                geo.adjust(-margin, -margin, margin, margin)
+                # In PySide6/Qt6, unite is deprecated/removed in favor of united or using += operator
+                # QRegion.united returns a new region, it does not modify in-place
+                nonlocal region
+                region = region.united(QRegion(geo))
 
-        y_pos = h - tb_h - 14 
+        add_widget(self.toolbar)
+        add_widget(self.left_flipper)
+        add_widget(self.right_flipper)
+        add_widget(self.status_bar, margin=0) # Status bar has no large shadow
+        add_widget(self._dev_watermark, margin=0)
         
-        self.toolbar.move((w - tb_w) // 2, y_pos)
-        self.left_flipper.move(margin, y_pos)
-        self.right_flipper.move(w - flipper_w - margin, y_pos)
-
-        if self.status_bar and self.status_bar.isVisible():
-            self.status_bar.setFixedWidth(w)
-            self.status_bar.move(0, 0)
-
-        if self._dev_watermark:
-            self._dev_watermark.adjustSize()
-            wm_w = self._dev_watermark.width()
-            wm_h = self._dev_watermark.height()
-            self._dev_watermark.move(w - wm_w - 16, h - wm_h - 12)
+        # Add slide widgets
+        for widgets in self.slide_widgets.values():
+            for w in widgets:
+                add_widget(w)
+                
+        # If no widgets, set empty mask (fully transparent)
+        if region.isEmpty():
+            # Keep a 1x1 pixel so window exists? Or just empty.
+            pass
+            
+        self.setMask(region)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.update_layout()
+        self._layout_updating = False
+        if self._reload_mask is not None and self._reload_mask.isVisible():
+            self._reload_mask.setGeometry(self.rect())
+            self._reload_mask.raise_()
+        self.update_mask()
+        
+    def add_slide_widget(self, widget):
+        if not widget:
+            return
+        
+        # Ensure we have the latest page index from monitor if possible
+        if self.monitor:
+            try:
+                curr, _ = self.monitor.get_page_info()
+                if curr > 0:
+                    # If we were out of sync, just update the index
+                    # We assume what's currently on screen matches 'curr'
+                    self._current_page_idx = int(curr)
+            except Exception:
+                pass
+        
+        # Use current page index
+        page_idx = int(self._current_page_idx)
+        if page_idx not in self.slide_widgets:
+            self.slide_widgets[page_idx] = []
+        
+        self.slide_widgets[page_idx].append(widget)
+        widget.setParent(self)
+        
+        # Connect close signal if available
+        if hasattr(widget, "request_close"):
+            widget.request_close.connect(lambda: self._remove_slide_widget(widget))
+            
+        widget.show()
 
-    # paintEvent removed to ensure full transparency of the overlay container
+    def _remove_slide_widget(self, widget):
+        # Find which page it belongs to
+        for page_idx, widgets in self.slide_widgets.items():
+            if widget in widgets:
+                widgets.remove(widget)
+                widget.hide()
+                widget.deleteLater()
+                break
 
     def update_page_info(self, current, total):
-        self.left_flipper.set_page_info(current, total)
-        self.right_flipper.set_page_info(current, total)
-        
-        # Force update to clean artifacts if any
-        self.update()
+        # Ensure int
+        try:
+            current = int(current)
+        except ValueError:
+            return
 
-class ToolbarWidget(QFrame):
+        # Handle slide-bound widgets visibility
+        if self._current_page_idx != current:
+            # Hide old widgets
+            if self._current_page_idx in self.slide_widgets:
+                for w in self.slide_widgets[self._current_page_idx]:
+                    w.hide()
+            
+            self._current_page_idx = current
+            
+            # Show new widgets
+            if current in self.slide_widgets:
+                for w in self.slide_widgets[current]:
+                    w.show()
+
+        if hasattr(self, 'left_flipper'):
+            self.left_flipper.set_page_info(current, total)
+        if hasattr(self, 'right_flipper'):
+            self.right_flipper.set_page_info(current, total)
+            
+        if self.isVisible():
+            QTimer.singleShot(0, self.update)
+
+        # Re-trigger style update to ensure radius is correct
+        tb_h = 56
+        if hasattr(self, 'toolbar'):
+            tb_h = self.toolbar.height()
+            
+        if hasattr(self, 'left_flipper'):
+            self.left_flipper.h_val = tb_h
+            self.left_flipper.update_style(getattr(self, "_is_light", False))
+        if hasattr(self, 'right_flipper'):
+            self.right_flipper.h_val = tb_h
+            self.right_flipper.update_style(getattr(self, "_is_light", False))
+
+class ToolbarWidget(QWidget):
     prev_clicked = Signal()
     next_clicked = Signal()
     end_clicked = Signal()
@@ -1144,6 +1640,10 @@ class ToolbarWidget(QFrame):
         self.pen_popup = None
         self._is_light = False
         self._dynamic_widgets = []
+        self._style_update_pending = False
+        self._style_update_timer = QTimer(self)
+        self._style_update_timer.setSingleShot(True)
+        self._style_update_timer.timeout.connect(self._apply_layout_style)
 
         self.indicator = QFrame(self)
         self.indicator.setObjectName("Indicator")
@@ -1164,49 +1664,71 @@ class ToolbarWidget(QFrame):
         return self.layout.sizeHint()
 
     def update_layout_style(self):
-        show_text = cfg.showToolbarText.value
-        
-        # Match HTML: .toolbar-preview-bar { background: rgba(28, 28, 30, 0.82); border: 0.5px solid rgba(255, 255, 255, 0.15); }
-        bg = "rgba(28, 28, 30, 0.82)" 
-        border = "rgba(255, 255, 255, 0.15)"
-        line_color = "rgba(255, 255, 255, 0.15)"
-
-        self.setStyleSheet(f"""
-            ToolbarWidget {{
-                background-color: {bg};
-                border: 0.5px solid {border};
-            }}
-        """)
-        
-        # Update children
-        for line in self.findChildren(QFrame):
-            if line.frameShape() == QFrame.VLine:
-                line.setFixedWidth(1)
-                line.setStyleSheet(f"background-color: {line_color}; border: none; margin: 10px 0;")
-                
-        for btn in self.findChildren(CustomToolButton):
-            btn.update_size()
-            btn.update_style(btn.tool_name == self.current_tool, False)
-        
-        # Force layout recalculation and update radius
-        self.layout.activate()
-        hint = self.layout.sizeHint()
-        # Match HTML: .toolbar-preview-bar { border-radius: 999px; }
-        radius = hint.height() // 2
-        
-        self.setStyleSheet(self.styleSheet() + f"\nToolbarWidget {{ border-radius: {radius}px; }}")
-        
-        # Match HTML: .toolbar-preview-bar { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); }
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(40)
-        shadow.setColor(QColor(0, 0, 0, 100))
-        shadow.setOffset(0, 12)
-        self.setGraphicsEffect(shadow)
-
-        # Notify parent to update position
+        if self._style_update_timer.isActive():
+            self._style_update_timer.stop()
+        self._style_update_pending = True
         p = self.parent()
-        if p and hasattr(p, "update_layout"):
-            p.update_layout()
+        if shiboken6.isValid(p) and hasattr(p, "show_reload_mask"):
+            p.show_reload_mask("正在重载页面")
+        self._style_update_timer.start(0)
+
+    def _apply_layout_style(self):
+        try:
+            if not shiboken6.isValid(self) or not hasattr(self, "layout") or self.layout is None:
+                return
+            show_text = cfg.showToolbarText.value
+
+            if self._is_light:
+                bg = "#FFFFFF"
+                border = "rgba(0, 0, 0, 0.08)"
+                line_color = "rgba(0, 0, 0, 0.08)"
+                shadow_color = QColor(0, 0, 0, 15)
+            else:
+                bg = "#202020"
+                border = "rgba(255, 255, 255, 0.08)"
+                line_color = "rgba(255, 255, 255, 0.15)"
+                shadow_color = QColor(0, 0, 0, 80)
+
+            self.layout.activate()
+            self.adjustSize()
+
+            for line in self.findChildren(QFrame):
+                if line.frameShape() == QFrame.VLine:
+                    line.setFixedWidth(1)
+                    line.setStyleSheet(f"background-color: {line_color}; border: none; margin: 10px 0;")
+
+            for btn in self.findChildren(CustomToolButton):
+                btn.update_size()
+                btn.update_style(btn.tool_name == self.current_tool, self._is_light)
+
+            self.layout.activate()
+            self.adjustSize()
+            hint = self.sizeHint()
+
+            radius = hint.height() // 2
+
+            self.setStyleSheet(f"""
+                ToolbarWidget {{
+                    background-color: {bg};
+                    border: 1px solid {border};
+                    border-radius: {radius}px;
+                }}
+            """)
+
+            shadow = QGraphicsDropShadowEffect(self)
+            shadow.setBlurRadius(40)
+            shadow.setColor(shadow_color)
+            shadow.setOffset(0, 8)
+            self.setGraphicsEffect(shadow)
+
+            p = self.parent()
+            if shiboken6.isValid(p) and hasattr(p, "update_layout"):
+                p.update_layout()
+        finally:
+            self._style_update_pending = False
+            p = self.parent()
+            if shiboken6.isValid(p) and hasattr(p, "hide_reload_mask"):
+                p.hide_reload_mask()
 
     def update_style(self, is_light=False):
         # Compatibility with old calls
@@ -1217,6 +1739,7 @@ class ToolbarWidget(QFrame):
         self.btn_undo.setVisible(visible)
         self.btn_redo.setVisible(visible)
         self.line1.setVisible(visible)
+        self.update_layout_style()
         QTimer.singleShot(10, self._update_indicator_now)
 
     def _update_indicator_now(self):
@@ -1330,6 +1853,9 @@ class ToolbarWidget(QFrame):
         QTimer.singleShot(0, self._update_indicator_now)
 
     def refresh_dynamic_tools(self):
+        p = self.parent()
+        if shiboken6.isValid(p) and hasattr(p, "show_reload_mask"):
+            p.show_reload_mask("正在重载页面")
         while self.dynamic_layout.count():
             item = self.dynamic_layout.takeAt(0)
             if item.widget():
@@ -1381,8 +1907,13 @@ class ToolbarWidget(QFrame):
                 self.dynamic_layout.addWidget(btn)
 
         self.adjustSize()
-        if hasattr(self.parent(), 'update_layout'):
-            self.parent().update_layout()
+        p = self.parent()
+        if shiboken6.isValid(p) and hasattr(p, "update_layout"):
+            p.update_layout()
+        if shiboken6.isValid(p) and hasattr(p, "_defer") and hasattr(p, "hide_reload_mask"):
+            p._defer(p.hide_reload_mask)
+        elif shiboken6.isValid(p) and hasattr(p, "hide_reload_mask"):
+            p.hide_reload_mask()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -1391,9 +1922,10 @@ class ToolbarWidget(QFrame):
 class PageFlipButton(QFrame):
     btn_clicked = Signal()
 
-    def __init__(self, icon_name, parent=None):
+    def __init__(self, icon_name, parent=None, rotation=0):
         super().__init__(parent)
-        # Match CustomToolButton circular size
+        self.icon_name = icon_name
+        self.rotation = rotation
         self.setFixedSize(38, 38)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet("""
@@ -1412,25 +1944,40 @@ class PageFlipButton(QFrame):
         layout.setAlignment(Qt.AlignCenter)
         
         self.icon_label = QLabel(self)
-        # Match CustomToolButton circular icon size
         self.icon_label.setFixedSize(20, 20)
         self.icon_label.setAlignment(Qt.AlignCenter)
         
-        icon_path = os.path.join(ICON_DIR, icon_name)
-        if os.path.exists(icon_path):
-            renderer = QSvgRenderer(icon_path)
-            if renderer.isValid():
-                pixmap = QPixmap(40, 40)
-                pixmap.fill(Qt.transparent)
-                painter = QPainter(pixmap)
-                painter.setRenderHint(QPainter.Antialiasing)
-                renderer.render(painter)
-                painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
-                painter.fillRect(pixmap.rect(), QColor(255, 255, 255))
-                painter.end()
-                self.icon_label.setPixmap(pixmap.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        
         layout.addWidget(self.icon_label)
+        self.update_icon_color(QColor(255, 255, 255))
+
+    def update_icon_color(self, color):
+        icon_path = os.path.join(ICON_DIR, self.icon_name)
+        if not os.path.exists(icon_path):
+            return
+            
+        cache_key = (self.icon_name, color.name(), 20, self.rotation)
+        cached_pixmap = GlobalIconCache.get(cache_key)
+        if cached_pixmap:
+            self.icon_label.setPixmap(cached_pixmap)
+            return
+
+        renderer = QSvgRenderer(icon_path)
+        if renderer.isValid():
+            base = QPixmap(40, 40)
+            base.fill(Qt.transparent)
+            p = QPainter(base)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.translate(base.width() / 2, base.height() / 2)
+            if self.rotation:
+                p.rotate(self.rotation)
+            p.translate(-base.width() / 2, -base.height() / 2)
+            renderer.render(p)
+            p.setCompositionMode(QPainter.CompositionMode_SourceIn)
+            p.fillRect(base.rect(), color)
+            p.end()
+            scaled = base.scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            GlobalIconCache.set(cache_key, scaled)
+            self.icon_label.setPixmap(scaled)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -1442,24 +1989,14 @@ class PageFlipWidget(QFrame):
     clicked_next = Signal()
     page_clicked = Signal(QPoint)
 
-    def __init__(self, side="Left", parent=None, height=56):
+    def __init__(self, side="Left", parent=None, height=56, orientation="Horizontal"):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.side = side
         self.h_val = height
+        self.orientation = orientation
         
         self.update_style()
-        self.setFixedSize(160, self.h_val)
-        
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(5, 0, 5, 0)
-        self.layout.setSpacing(0)
-        
-        self.btn_prev = PageFlipButton("Previous.svg", self)
-        self.btn_prev.btn_clicked.connect(self.clicked_prev.emit)
-        
-        self.btn_next = PageFlipButton("Next.svg", self)
-        self.btn_next.btn_clicked.connect(self.clicked_next.emit)
         
         # Center container that takes all remaining space
         self.page_container = QFrame(self)
@@ -1471,6 +2008,8 @@ class PageFlipWidget(QFrame):
         self.lbl_page = ClickableLabel("0/0", self.page_container)
         self.lbl_page.setAlignment(Qt.AlignCenter)
         self.lbl_page.clicked.connect(self.page_clicked.emit)
+        # Ensure label repaints cleanly when content changes
+        self.lbl_page.setAttribute(Qt.WA_OpaquePaintEvent, False)
         
         self.lbl_hint = QLabel(_t("toolbar.page"), self.page_container)
         self.lbl_hint.setAlignment(Qt.AlignCenter)
@@ -1479,10 +2018,36 @@ class PageFlipWidget(QFrame):
         
         self.page_layout.addWidget(self.lbl_page)
         self.page_layout.addWidget(self.lbl_hint)
+
+        if orientation == "Vertical":
+             self.setFixedSize(self.h_val, 160)
+             self.layout = QVBoxLayout(self)
+             self.layout.setContentsMargins(0, 5, 0, 5)
+             
+             # Up arrow (Previous) - Rotate 90 deg
+             self.btn_prev = PageFlipButton("Previous.svg", self, rotation=90)
+             
+             # Down arrow (Next) - Rotate 90 deg
+             self.btn_next = PageFlipButton("Next.svg", self, rotation=90)
+             
+             self.layout.addWidget(self.btn_prev, 0, Qt.AlignHCenter)
+             self.layout.addWidget(self.page_container, 1)
+             self.layout.addWidget(self.btn_next, 0, Qt.AlignHCenter)
+        else:
+             self.setFixedSize(160, self.h_val)
+             self.layout = QHBoxLayout(self)
+             self.layout.setContentsMargins(5, 0, 5, 0)
+             self.btn_prev = PageFlipButton("Previous.svg", self)
+             self.btn_next = PageFlipButton("Next.svg", self)
+             
+             self.layout.addWidget(self.btn_prev, 0, Qt.AlignVCenter)
+             self.layout.addWidget(self.page_container, 1)
+             self.layout.addWidget(self.btn_next, 0, Qt.AlignVCenter)
+             
+        self.layout.setSpacing(0)
         
-        self.layout.addWidget(self.btn_prev)
-        self.layout.addWidget(self.page_container, 1) # Stretch factor 1
-        self.layout.addWidget(self.btn_next)
+        self.btn_prev.btn_clicked.connect(self.clicked_prev.emit)
+        self.btn_next.btn_clicked.connect(self.clicked_next.emit)
 
     def _on_show_text_changed(self, show):
         # Hint is now always visible, no need to toggle
@@ -1490,25 +2055,47 @@ class PageFlipWidget(QFrame):
 
     def set_page_info(self, current, total):
         hint_fg = "rgba(255, 255, 255, 0.6)" if not hasattr(self, "_is_light") or not self._is_light else "rgba(0, 0, 0, 0.5)"
-        self.lbl_page.setText(f'<span style="font-size: 16px; font-weight: 900;">{current}</span>'
+        
+        # Calculate optimal font size based on number length to prevent overflow
+        num_len = len(str(current))
+        font_size = 16
+        if num_len > 3:
+            font_size = 12
+        elif num_len > 2:
+            font_size = 14
+            
+        self.lbl_page.setText(f'<span style="font-size: {font_size}px; font-weight: 900;">{current}</span>'
                               f'<span style="font-size: 10px; font-weight: 400; color: {hint_fg};">/{total}</span>')
+        self.lbl_page.repaint()
 
     def update_style(self, is_light=False):
-        # Match HTML toolbar preview design
         self._is_light = is_light
-        bg = "rgba(28, 28, 30, 0.82)"
-        border = "rgba(255, 255, 255, 0.15)"
-        fg = "white"
-        hint_fg = "rgba(255, 255, 255, 0.6)"
+        
+        # Settings Design Style
+        if self._is_light:
+            bg = "#FFFFFF"
+            border = "rgba(0, 0, 0, 0.08)"
+            fg = "#191919"
+            hint_fg = "rgba(0, 0, 0, 0.5)"
+            hover_bg = "rgba(0, 0, 0, 0.05)"
+            shadow_color = QColor(0, 0, 0, 15)
+        else:
+            bg = "#202020"
+            border = "rgba(255, 255, 255, 0.08)"
+            fg = "white"
+            hint_fg = "rgba(255, 255, 255, 0.6)"
+            hover_bg = "rgba(255, 255, 255, 0.08)"
+            shadow_color = QColor(0, 0, 0, 80)
         
         # Calculate radius to ensure it's always a capsule (pill shape)
-        radius = self.h_val // 2
+        # Use min dimension for radius
+        radius = min(self.width(), self.height()) // 2
         
         self.setStyleSheet(f"""
             PageFlipWidget {{
                 background-color: {bg};
                 border-radius: {radius}px;
-                border: 0.5px solid {border};
+                border: 1px solid {border};
             }}
             QLabel {{
                 color: {fg};
@@ -1525,9 +2112,22 @@ class PageFlipWidget(QFrame):
             }}
         """)
 
-        # Match HTML: .toolbar-preview-bar { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); }
+        # Update buttons hover style
+        for btn in self.findChildren(PageFlipButton):
+            btn.setStyleSheet(f"""
+                QFrame {{
+                    background-color: transparent;
+                    border-radius: 19px;
+                }}
+                QFrame:hover {{
+                    background-color: {hover_bg};
+                }}
+            """)
+            btn.update_icon_color(QColor(fg))
+
+        # Shadow
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(40)
-        shadow.setColor(QColor(0, 0, 0, 100))
-        shadow.setOffset(0, 12)
+        shadow.setColor(shadow_color)
+        shadow.setOffset(0, 8)
         self.setGraphicsEffect(shadow)

@@ -45,8 +45,8 @@ Kazuha 致力于提供简洁、高效的演示体验，特别针对课堂教学�
 ### 3. 高度自定义
 
 Kazuha 提供了灵活的自定义义项，您可以根据个人习惯和演示需求调整。
-<img width="1580" height="951" alt="image" src="https://github.com/user-attachments/assets/1a9711d9-ef4b-431c-b9b1-edbd52a59bdf" />
-<img width="1580" height="951" alt="image" src="https://github.com/user-attachments/assets/27916137-1183-4fe0-aaff-c67aa04df291" />
+<img width="580" height="477" alt="image" src="https://github.com/user-attachments/assets/1a9711d9-ef4b-431c-b9b1-edbd52a59bdf" />
+<img width="580" height="477" alt="image" src="https://github.com/user-attachments/assets/27916137-1183-4fe0-aaff-c67aa04df291" />
 
 
 

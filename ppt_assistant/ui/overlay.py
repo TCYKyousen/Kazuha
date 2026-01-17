@@ -35,6 +35,30 @@ def _load_language():
     return "zh-CN"
 
 
+def _get_overlay_font_stack():
+    base = "'SF Pro', '苹方-简', 'PingFang SC', 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', sans-serif"
+    try:
+        if os.path.exists(SETTINGS_PATH):
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            lang = data.get("General", {}).get("Language", "zh-CN")
+            fonts = data.get("Fonts", {}) or {}
+            profiles = fonts.get("Profiles", {}) or {}
+            lang_profile = profiles.get(lang, {}) or {}
+            v = lang_profile.get("overlay") or lang_profile.get("qt") or ""
+            if isinstance(v, str):
+                v = v.strip()
+            else:
+                v = ""
+            if not v:
+                return base
+            safe = v.replace("'", "\\'")
+            return f"'{safe}', {base}"
+    except Exception:
+        return base
+    return base
+
+
 LANGUAGE = _load_language()
 
 _TRANSLATIONS = {
@@ -398,7 +422,8 @@ class StatusBarWidget(QFrame):
         self._is_light = is_light
         fg = "#FFFFFF"
         bg = "#40000000"
-            
+        font_stack = _get_overlay_font_stack()
+
         self.setStyleSheet(
             f"""
             StatusBarWidget {{
@@ -407,7 +432,7 @@ class StatusBarWidget(QFrame):
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans VF', 'MiSans', 'Segoe UI', sans-serif;
+                font-family: {font_stack};
                 background: transparent;
             }}
             QLabel#TimeLabel {{
@@ -567,6 +592,7 @@ class PenColorPopup(QFrame):
         bg = "white" if is_light else "rgb(32, 32, 32)"
         border = "rgba(0, 0, 0, 0.08)" if is_light else "rgba(255, 255, 255, 0.1)"
         fg = "black" if is_light else "white"
+        font_stack = _get_overlay_font_stack()
         
         # Main layout for the popup window
         self.layout = QVBoxLayout(self)
@@ -583,7 +609,7 @@ class PenColorPopup(QFrame):
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+                font-family: {font_stack};
                 font-size: 11px;
                 font-weight: 500;
                 background: transparent;
@@ -674,14 +700,14 @@ class CustomToolButton(QFrame):
         
         self.text_label = MarqueeLabel(text, self)
         self.text_label.setAlignment(Qt.AlignCenter)
-        self.text_label.setStyleSheet("""
-            QLabel {
+        self.text_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: 8px;
                 font-weight: 300;
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+                font-family: {_get_overlay_font_stack()};
                 color: rgba(255, 255, 255, 0.6);
                 background: transparent;
-            }
+            }}
         """)
         self.text_label.setVisible(bool(text) and cfg.showToolbarText.value)
         self.layout.addWidget(self.text_label)
@@ -813,7 +839,7 @@ class CustomToolButton(QFrame):
             QLabel {{
                 font-size: 11px;
                 font-weight: 400;
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+                font-family: {_get_overlay_font_stack()};
                 color: rgba(255, 255, 255, {fg_alpha});
                 background: transparent;
             }}
@@ -867,7 +893,7 @@ class SlidePreviewPopup(FluentWidget):
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+                font-family: 'MiSans Latin', 'HarmonyOS Sans SC', 'SF Pro', '苹方-简', 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
             }}
         """)
         self.card_container = QWidget(self)
@@ -1075,10 +1101,11 @@ class ReloadMask(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_StyledBackground, True)
+        font_stack = _get_overlay_font_stack()
         self.setStyleSheet(
             "ReloadMask { background-color: rgba(0, 0, 0, 110); }"
             "QFrame { background-color: rgba(30, 30, 30, 220); border-radius: 16px; }"
-            "QLabel { color: rgba(255, 255, 255, 0.92); font-size: 14px; font-weight: 500; font-family: 'MiSans', 'Segoe UI', sans-serif; }"
+            f"QLabel {{ color: rgba(255, 255, 255, 0.92); font-size: 14px; font-weight: 500; font-family: {font_stack}; }}"
         )
 
         outer = QVBoxLayout(self)
@@ -1885,7 +1912,11 @@ class ToolbarWidget(QWidget):
             line.setFixedHeight(24)
             self.dynamic_layout.addWidget(line)
             for plugin in toolbar_plugins:
-                btn = CustomToolButton(plugin.get_icon() or "More.svg", plugin.get_name(), self, text=plugin.get_name())
+                pixmap = None
+                if hasattr(plugin, 'get_pixmap'):
+                    pixmap = plugin.get_pixmap()
+                
+                btn = CustomToolButton(plugin.get_icon() or "More.svg", plugin.get_name(), self, text=plugin.get_name(), pixmap=pixmap)
                 btn.clicked.connect(plugin.execute)
                 self.dynamic_layout.addWidget(btn)
 
@@ -2099,7 +2130,7 @@ class PageFlipWidget(QFrame):
             }}
             QLabel {{
                 color: {fg};
-                font-family: 'MiSans Latin', 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+                font-family: 'MiSans Latin', 'HarmonyOS Sans SC', 'SF Pro', '苹方-简', 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
                 font-size: 12px;
                 font-weight: 900;
                 background: transparent;

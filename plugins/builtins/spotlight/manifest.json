@@ -1,0 +1,8 @@
+{
+    "name": "Spotlight",
+    "entry": "plugin.SpotlightPlugin",
+    "icon": "spotlight.svg",
+    "version": "1.0.0",
+    "description": "Kazuha 的聚光灯插件，支持区域高亮、关灯模式和放大镜。",
+    "type": "toolbar"
+}

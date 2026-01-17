@@ -78,7 +78,30 @@ class PPTWorker(QObject):
 
             if self.ppt_app.SlideShowWindows.Count > 0:
                 try:
-                    ss_win = self.ppt_app.SlideShowWindows(1)
+                    # Find the best slide show window (avoiding Presenter View if possible)
+                    ss_win = None
+                    count = self.ppt_app.SlideShowWindows.Count
+                    
+                    if count == 1:
+                        ss_win = self.ppt_app.SlideShowWindows(1)
+                    else:
+                        # Try to find the one with class name "screenClass"
+                        for i in range(1, count + 1):
+                            try:
+                                tmp_win = self.ppt_app.SlideShowWindows(i)
+                                hwnd = getattr(tmp_win, "HWND", 0)
+                                if hwnd:
+                                    class_name = win32gui.GetClassName(int(hwnd))
+                                    if class_name == "screenClass":
+                                        ss_win = tmp_win
+                                        break
+                            except:
+                                continue
+                        
+                        # Fallback to the first one if not found
+                        if ss_win is None:
+                            ss_win = self.ppt_app.SlideShowWindows(1)
+
                     view = ss_win.View
                     state = view.State
                     
@@ -126,7 +149,29 @@ class PPTWorker(QObject):
 
         try:
             if self.wps_app.SlideShowWindows.Count > 0:
-                ss_win = self.wps_app.SlideShowWindows(1)
+                ss_win = None
+                count = self.wps_app.SlideShowWindows.Count
+                
+                if count == 1:
+                    ss_win = self.wps_app.SlideShowWindows(1)
+                else:
+                    # Try to find the slideshow window (avoiding presenter view)
+                    # WPS slideshow window class is usually "wppSlideShowWindowClass"
+                    for i in range(1, count + 1):
+                        try:
+                            tmp_win = self.wps_app.SlideShowWindows(i)
+                            hwnd = getattr(tmp_win, "HWND", 0)
+                            if hwnd:
+                                class_name = win32gui.GetClassName(int(hwnd))
+                                if class_name == "wppSlideShowWindowClass":
+                                    ss_win = tmp_win
+                                    break
+                        except:
+                            continue
+                    
+                    if ss_win is None:
+                        ss_win = self.wps_app.SlideShowWindows(1)
+
                 view = ss_win.View
                 # WPS State might differ, usually 1=Running
                 state = getattr(view, "State", 1)
@@ -431,42 +476,60 @@ class PPTMonitor(QObject):
         self.slide_changed.emit(current, total)
 
     def _on_geometry_changed(self, rect_raw, _):
-        # Worker sends raw QRect(x,y,w,h) and None for screen
-        # We process screen detection here in Main Thread
-        
-        # Fix logic: rect_raw is QRect
         x, y, w, h = rect_raw.x(), rect_raw.y(), rect_raw.width(), rect_raw.height()
-        
-        # Calculate center
         cx, cy = x + w // 2, y + h // 2
         
-        # Find screen
-        screen = QGuiApplication.screenAt(QPoint(cx, cy))
-        if not screen:
-            screen = QGuiApplication.primaryScreen()
-            
-        # Handle DPI if needed. 
-        # Note: Win32 GetWindowRect returns physical pixels.
-        # Qt setGeometry expects logical pixels if High DPI scaling is active?
-        # PySide6 usually handles this well if we use the screen's coordinate system.
-        # But if we are mixing, we might need to adjust.
+        target_mode = cfg.overlayScreen.value
+        screens = QGuiApplication.screens()
         
-        if screen:
-            dpr = screen.devicePixelRatio()
-            # If GetWindowRect returned physical, and Qt expects logical:
-            # l_left = int(x / dpr) ...
-            # But let's assume the Worker sent raw pixels.
+        ppt_screen = None
+        ppt_p_origin = (0, 0)
+        
+        try:
+            hmonitor = win32api.MonitorFromPoint((cx, cy), win32con.MONITOR_DEFAULTTONEAREST)
+            m_info = win32api.GetMonitorInfo(hmonitor)
+            m_name = m_info['Device']
+            ppt_p_origin = (m_info['Monitor'][0], m_info['Monitor'][1])
             
-            # NOTE: Previous code had explicit DPR division. Let's restore it.
-            l_left = int(x / dpr)
-            l_top = int(y / dpr)
-            l_width = int(w / dpr)
-            l_height = int(h / dpr)
+            for s in screens:
+                if s.name() == m_name:
+                    ppt_screen = s
+                    break
+        except Exception:
+            pass
+
+        if not ppt_screen:
+            ppt_screen = QGuiApplication.primaryScreen()
+
+        display_screen = None
+        if target_mode == "Primary":
+            display_screen = QGuiApplication.primaryScreen()
+        elif target_mode.startswith("Screen "):
+            try:
+                idx = int(target_mode.split(" ")[1]) - 1
+                if 0 <= idx < len(screens):
+                    display_screen = screens[idx]
+            except:
+                pass
+        
+        if not display_screen or target_mode == "Auto":
+            display_screen = ppt_screen
+
+        if display_screen and ppt_screen:
+            if display_screen == ppt_screen:
+                dpr = ppt_screen.devicePixelRatio()
+                geo = ppt_screen.geometry()
+                lx = geo.x() + (x - ppt_p_origin[0]) / dpr
+                ly = geo.y() + (y - ppt_p_origin[1]) / dpr
+                lw = w / dpr
+                lh = h / dpr
+                rect_logical = QRect(int(lx), int(ly), int(lw), int(lh))
+            else:
+                rect_logical = display_screen.geometry()
             
-            final_rect = QRect(l_left, l_top, l_width, l_height)
-            self.window_geometry_changed.emit(final_rect, screen)
+            self.window_geometry_changed.emit(rect_logical, display_screen)
         else:
-            self.window_geometry_changed.emit(rect_raw, screen)
+            self.window_geometry_changed.emit(rect_raw, None)
 
     def _update_local_video_state(self, ratio, pos, length):
         self._video_ratio = ratio

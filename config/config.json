@@ -2,9 +2,10 @@
     "QFluentWidgets": {
         "FontFamilies": [
             "MiSans Latin",
+            "HarmonyOS Sans SC",
             "Segoe UI",
             "Microsoft YaHei",
-            "PingFang SC"
+            "苹方-简"
         ],
         "ThemeColor": "#3275F5",
         "ThemeMode": "Light"

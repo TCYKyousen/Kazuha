@@ -104,17 +104,34 @@ def _get_current_language():
 def _apply_global_font(app: QApplication):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     font_path = os.path.join(root_dir, "fonts", "MiSansVF.ttf")
-    if not os.path.exists(font_path):
+    selected_family = ""
+    try:
+        if os.path.exists(SETTINGS_PATH):
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            lang = data.get("General", {}).get("Language", "zh-CN")
+            profiles = (data.get("Fonts", {}) or {}).get("Profiles", {}) or {}
+            v = (profiles.get(lang, {}) or {}).get("qt", "")
+            if isinstance(v, str) and v.strip():
+                selected_family = v.strip()
+    except Exception:
+        selected_family = ""
+
+    base_family = ""
+    if os.path.exists(font_path):
+        try:
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            if font_id != -1:
+                families = QFontDatabase.applicationFontFamilies(font_id)
+                if families:
+                    base_family = families[0]
+        except Exception:
+            base_family = ""
+
+    family = selected_family or base_family
+    if not family:
         return
-    font_id = QFontDatabase.addApplicationFont(font_path)
-    if font_id == -1:
-        return
-    families = QFontDatabase.applicationFontFamilies(font_id)
-    if not families:
-        return
-    family = families[0]
-    font = QFont(family)
-    app.setFont(font)
+    app.setFont(QFont(family))
 
 
 def _load_version_info():
@@ -578,6 +595,18 @@ class PPTAssistantApp:
         # Step 2: Fonts
         yield 20, "loading_fonts"
         _apply_global_font(self.app)
+        self._current_language = _get_current_language()
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+        profiles = (data.get("Fonts", {}) or {}).get("Profiles", {}) or {}
+        lang_profile = profiles.get(self._current_language, {}) or {}
+        qt_font = lang_profile.get("qt", "")
+        overlay_font = lang_profile.get("overlay", "") or qt_font
+        self._current_qt_font = qt_font.strip() if isinstance(qt_font, str) else ""
+        self._current_overlay_font = overlay_font.strip() if isinstance(overlay_font, str) else ""
 
         self._settings_mtime = os.path.getmtime(SETTINGS_PATH) if os.path.exists(SETTINGS_PATH) else 0
         self._settings_timer = QTimer()
@@ -698,21 +727,43 @@ class PPTAssistantApp:
             self._settings_mtime = mtime
             
             old_theme = cfg.themeMode.value
-            old_lang = _get_current_language()
+            old_lang = getattr(self, "_current_language", "zh-CN")
+            old_qt_font = getattr(self, "_current_qt_font", "")
+            old_overlay_font = getattr(self, "_current_overlay_font", "")
             old_toolbar_text = cfg.showToolbarText.value
             old_status_bar = cfg.showStatusBar.value
             old_undo_redo = cfg.showUndoRedo.value
             # old_layout_mode = cfg.toolbarLayout.value
 
             reload_cfg()
-            
-            new_lang = _get_current_language()
+
+            try:
+                with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+
+            new_lang = (data.get("General", {}) or {}).get("Language", "zh-CN")
+            profiles = (data.get("Fonts", {}) or {}).get("Profiles", {}) or {}
+            lang_profile = profiles.get(new_lang, {}) or {}
+            qt_font = lang_profile.get("qt", "")
+            overlay_font = lang_profile.get("overlay", "") or qt_font
+            new_qt_font = qt_font.strip() if isinstance(qt_font, str) else ""
+            new_overlay_font = overlay_font.strip() if isinstance(overlay_font, str) else ""
+
+            self._current_language = new_lang
+            self._current_qt_font = new_qt_font
+            self._current_overlay_font = new_overlay_font
+
+            if new_qt_font != old_qt_font:
+                _apply_global_font(self.app)
             
             # If language or critical layout changed, reload overlay
             if (new_lang != old_lang or 
                 cfg.showToolbarText.value != old_toolbar_text or 
                 cfg.showStatusBar.value != old_status_bar or
-                cfg.showUndoRedo.value != old_undo_redo):
+                cfg.showUndoRedo.value != old_undo_redo or
+                new_overlay_font != old_overlay_font):
                 if not self._reloading_overlay:
                     self._reload_timer.start()
             

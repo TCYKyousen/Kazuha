@@ -72,6 +72,48 @@ class Api:
     def get_version(self):
         return self.version
 
+    def get_system_fonts(self):
+        if sys.platform != "win32":
+            return []
+        try:
+            import winreg
+
+            keys = [
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
+                (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
+            ]
+            fonts = set()
+            suffixes = (
+                " (TrueType)",
+                " (OpenType)",
+                " (Type 1)",
+                " (All res)",
+            )
+            for root, path in keys:
+                try:
+                    with winreg.OpenKey(root, path) as k:
+                        i = 0
+                        while True:
+                            try:
+                                name, _, _ = winreg.EnumValue(k, i)
+                            except OSError:
+                                break
+                            i += 1
+                            if not isinstance(name, str):
+                                continue
+                            display = name.strip()
+                            for suf in suffixes:
+                                if display.endswith(suf):
+                                    display = display[: -len(suf)].strip()
+                                    break
+                            if display:
+                                fonts.add(display)
+                except OSError:
+                    continue
+            return sorted(fonts, key=lambda s: s.lower())
+        except Exception:
+            return []
+
     def _get_settings_path(self):
         settings_path = os.environ.get("SETTINGS_PATH")
         if not settings_path:
@@ -376,6 +418,52 @@ class Api:
             
         subprocess.Popen([sys.executable, __file__, "--dialog", temp_path])
 
+    def show_font_warning(self, font_name=None, font_lang=None):
+        theme_mode = self.settings.get("Appearance", {}).get("ThemeMode", "Light")
+        theme_lower = str(theme_mode).lower()
+        if theme_lower == "dark":
+            accent = "#E1EBFF"
+        else:
+            accent = "#3275F5"
+
+        dialog_data = {
+            "code": "font_warning",
+            "title": "",
+            "text": "",
+            "confirmText": "",
+            "hideCancel": True,
+            "theme": theme_lower,
+            "accentColor": accent,
+            "targetLang": font_lang # Pass the target language for the font
+        }
+        
+        # If font_name is provided, override the web font in settings passed to the dialog
+        # This allows the dialog to preview the font before it's necessarily saved/reloaded
+        temp_settings = json.loads(json.dumps(self.settings)) # deep copy
+        if font_name:
+            if "Fonts" not in temp_settings: temp_settings["Fonts"] = {}
+            if "Profiles" not in temp_settings["Fonts"]: temp_settings["Fonts"]["Profiles"] = {}
+            
+            # Use provided font_lang or fallback to UI language
+            lang = font_lang or temp_settings.get("General", {}).get("Language", "zh-CN")
+            
+            if lang not in temp_settings["Fonts"]["Profiles"]: temp_settings["Fonts"]["Profiles"][lang] = {}
+            temp_settings["Fonts"]["Profiles"][lang]["web"] = font_name
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+            json.dump(dialog_data, f)
+            temp_path = f.name
+
+        # We need a way to pass the temp_settings to the new process too
+        # The easiest way is to include them in the dialog_data if we want to override
+        if font_name:
+            dialog_data["overrideSettings"] = temp_settings
+            # Rewrite the temp file with overrideSettings
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                json.dump(dialog_data, f)
+
+        subprocess.Popen([sys.executable, __file__, "--dialog", temp_path])
+
     def get_dialog_data(self):
         return self.dialog_data
 
@@ -446,6 +534,7 @@ def main():
         
         default_theme = "auto"
         default_accent = "#3275F5"
+        settings = {}
         
         if os.path.exists(settings_path):
             try:
@@ -456,7 +545,8 @@ def main():
                         default_accent = "#E1EBFF"
                     else:
                         default_accent = "#3275F5"
-            except: pass
+            except:
+                settings = {}
 
         with open(file_path, 'r', encoding='utf-8') as f:
             if mode == "--dialog":
@@ -483,6 +573,12 @@ def main():
         api = Api()
         api.dialog_data = dialog_data
         
+        # Use overridden settings if provided in dialog_data
+        if "overrideSettings" in dialog_data:
+            api.settings = dialog_data["overrideSettings"]
+        else:
+            api.settings = settings
+        
         base_dir = os.path.dirname(os.path.abspath(__file__))
         html_path = os.path.join(os.path.dirname(base_dir), "ppt_assistant", "ui", "dialog.html")
         
@@ -490,8 +586,8 @@ def main():
             win_width = 900
             win_height = 600
         else:
-            win_width = 500
-            win_height = 400
+            win_width = 650
+            win_height = 500
         
         window = webview.create_window(
             dialog_data.get("title", "Dialog"),

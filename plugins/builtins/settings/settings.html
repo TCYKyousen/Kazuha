@@ -29,7 +29,7 @@
       --hyperos-g3: #fce7f3;
       --hyperos-g4: #d1fae5;
       --hyperos-g5: #ffffff;
-      --font-stack: "MiSans Latin", "HarmonyOS Sans SC", "Source Han Sans CN", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+      --font-stack: "MiSans Latin", "HarmonyOS Sans SC", "SF Pro", "苹方-简", "PingFang SC", "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
     }
 
     [data-theme="dark"] {
@@ -126,6 +126,14 @@
       border: 1px solid var(--divider);
       box-shadow: var(--shadow-main);
       transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .sidebar-title {
+      padding: 16px 20px 12px;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
     }
 
     @keyframes gradientFlow {
@@ -339,9 +347,19 @@
       background: var(--card-bg);
       border-radius: 12px;
       margin-bottom: 24px;
-      overflow: hidden;
       width: 100%;
       border: 1px solid var(--card-border);
+      position: relative;
+    }
+
+    .settings-item:first-child {
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    .settings-item:last-child {
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
     }
 
     .group-title {
@@ -1290,6 +1308,125 @@
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ccc"><path d="M7 10l5 5 5-5z"/></svg>');
     }
 
+    .font-dropdown {
+      position: relative;
+      min-width: 220px;
+    }
+
+    .font-dropdown-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--divider);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 36px;
+    }
+
+    .font-dropdown-toggle:hover {
+      background-color: var(--item-hover);
+    }
+
+    .font-dropdown-label {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .font-dropdown-label-inner {
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    .font-dropdown-label.marquee .font-dropdown-label-inner {
+      animation: font-dropdown-marquee 8s linear infinite;
+    }
+
+    .font-dropdown-icon {
+      margin-left: 8px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 18px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23888"><path d="M7 10l5 5 5-5z"/></svg>');
+    }
+
+    [data-theme="dark"] .font-dropdown-icon {
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ccc"><path d="M7 10l5 5 5-5z"/></svg>');
+    }
+
+    .font-dropdown-menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      max-height: 320px;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border-radius: 8px;
+      border: 1px solid var(--divider);
+      box-shadow: 0 8px 24px var(--shadow-color);
+      z-index: 20;
+      display: none;
+    }
+
+    .font-dropdown.open .font-dropdown-menu {
+      display: block;
+    }
+
+    .font-dropdown-menu-header {
+      position: sticky;
+      top: 0;
+      padding: 6px 8px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--divider);
+      z-index: 1;
+    }
+
+    .font-dropdown-search {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 4px 6px;
+    }
+
+    .font-dropdown-option {
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .font-dropdown-option:hover {
+      background: var(--item-hover);
+    }
+
+    .font-dropdown-option.active {
+      background: var(--item-hover);
+      color: var(--accent-blue);
+    }
+
+    @keyframes font-dropdown-marquee {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-50%);
+      }
+    }
+
     .styled-input {
         background: var(--bg-surface);
         color: var(--text-primary);
@@ -1543,6 +1680,193 @@
     .icon-exit {
       -webkit-mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>');
     }
+
+    /* Font Customization Styles */
+    .inline-warning {
+      background: var(--bg-surface-secondary, rgba(250, 173, 20, 0.05));
+      border: 1px solid rgba(250, 173, 20, 0.2);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 12px 0;
+      display: none;
+      animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .inline-warning.active {
+      display: block;
+    }
+
+    .inline-warning-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #faad14;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .inline-warning-content {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .inline-warning-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .settings-item.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .font-dropdown.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    #font-selection-area {
+      transition: all 0.3s ease;
+      margin-top: 12px;
+    }
+
+    #font-selection-area.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+      filter: grayscale(0.8);
+    }
+
+    /* Modal for confirmation - Brand new Island design */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: var(--bg-app);
+      width: 420px;
+      max-width: 90vw;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      animation: modalFadeIn 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      padding: 0 4px;
+    }
+
+    .modal-island {
+      background: var(--bg-surface);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--divider);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+
+    .modal-text {
+      font-size: 14.5px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 0 4px;
+    }
+
+    /* Island style buttons for modals */
+    .modal-btn {
+      min-width: 88px;
+      height: 36px;
+      border-radius: 18px;
+      border: none;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+    }
+
+    .modal-btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--divider);
+    }
+
+    .modal-btn-secondary:hover {
+      background: var(--item-hover);
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+    }
+
+    .modal-btn-confirm {
+      background: transparent;
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+    }
+
+    .modal-btn-confirm:hover {
+      background: var(--accent-blue);
+      color: #FFFFFF;
+    }
+
+    .modal-btn:active {
+      transform: scale(0.98);
+      filter: brightness(0.9);
+    }
   </style>
 </head>
 
@@ -1559,6 +1883,7 @@
       </div>
     </div>
     <div class="sidebar">
+      <div class="sidebar-title">设置</div>
       <div class="sidebar-item active" data-section="main">
         <svg class="sidebar-icon" viewBox="0 0 24 24">
           <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
@@ -1566,6 +1891,15 @@
             d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
         </svg>
         <span data-i18n="nav.main">主程序</span>
+      </div>
+      <div class="sidebar-item" data-section="fonts">
+        <svg class="sidebar-icon" viewBox="0 0 24 24">
+          <path d="M4 20h16" />
+          <path d="M10 18V6" />
+          <path d="M6 18h8" />
+          <path d="M7 6h10" />
+        </svg>
+        <span data-i18n="nav.fonts">字体</span>
       </div>
       <div class="sidebar-item" data-section="overlay">
         <svg class="sidebar-icon" viewBox="0 0 24 24">
@@ -1686,6 +2020,129 @@
         </div>
       </div>
 
+      <div class="section" id="section-fonts">
+        <div class="group-title" data-i18n="group.fonts">全局应用字体</div>
+        
+        <div class="settings-group">
+          <div class="settings-item" onclick="toggleCustomFont()">
+            <div class="item-info">
+              <span class="item-label" data-i18n="fonts.custom.label">自定义字体</span>
+              <span class="item-desc" data-i18n="fonts.custom.desc">启用后可手动选择各个界面的显示字体</span>
+            </div>
+            <div class="switch" id="sw-Fonts-CustomFont"></div>
+          </div>
+        </div>
+
+        <div id="font-selection-area">
+          <div class="pivot-container" style="margin-top: 16px; margin-bottom: 12px; padding: 0 4px;">
+            <div class="pivot-item active" data-pivot-group="fonts" data-pivot="zh-CN" onclick="FontManager.switchTab('zh-CN')">简体中文</div>
+            <div class="pivot-item" data-pivot-group="fonts" data-pivot="zh-TW" onclick="FontManager.switchTab('zh-TW')">繁體中文</div>
+            <div class="pivot-item" data-pivot-group="fonts" data-pivot="ja-JP" onclick="FontManager.switchTab('ja-JP')">日本語</div>
+            <div class="pivot-item" data-pivot-group="fonts" data-pivot="en-US" onclick="FontManager.switchTab('en-US')">English</div>
+          </div>
+
+          <!-- zh-CN -->
+          <div class="pivot-content active settings-group" data-pivot-group="fonts" data-pivot-content="zh-CN">
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.web.label">网页界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.web.desc">设置 / 计时器 / Dialog</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-CN" data-font-scene="web"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.qt.label">主程序界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.qt.desc">Qt 界面（托盘、设置入口等）</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-CN" data-font-scene="qt"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.overlay.label">悬浮窗</span>
+                <span class="item-desc" data-i18n="fonts.scene.overlay.desc">PPT 放映时的工具栏与面板</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-CN" data-font-scene="overlay"></div>
+            </div>
+          </div>
+
+          <!-- zh-TW -->
+          <div class="pivot-content settings-group" data-pivot-group="fonts" data-pivot-content="zh-TW">
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.web.label">网页界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.web.desc">设置 / 计时器 / Dialog</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-TW" data-font-scene="web"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.qt.label">主程序界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.qt.desc">Qt 界面（托盘、设置入口等）</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-TW" data-font-scene="qt"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.overlay.label">悬浮窗</span>
+                <span class="item-desc" data-i18n="fonts.scene.overlay.desc">PPT 放映时的工具栏与面板</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="zh-TW" data-font-scene="overlay"></div>
+            </div>
+          </div>
+
+          <!-- ja-JP -->
+          <div class="pivot-content settings-group" data-pivot-group="fonts" data-pivot-content="ja-JP">
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.web.label">网页界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.web.desc">设置 / 计时器 / Dialog</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="ja-JP" data-font-scene="web"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.qt.label">主程序界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.qt.desc">Qt 界面（托盘、设置入口等）</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="ja-JP" data-font-scene="qt"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.overlay.label">悬浮窗</span>
+                <span class="item-desc" data-i18n="fonts.scene.overlay.desc">PPT 放映时的工具栏与面板</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="ja-JP" data-font-scene="overlay"></div>
+            </div>
+          </div>
+
+          <!-- en-US -->
+          <div class="pivot-content settings-group" data-pivot-group="fonts" data-pivot-content="en-US">
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.web.label">网页界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.web.desc">设置 / 计时器 / Dialog</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="en-US" data-font-scene="web"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.qt.label">主程序界面</span>
+                <span class="item-desc" data-i18n="fonts.scene.qt.desc">Qt 界面（托盘、设置入口等）</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="en-US" data-font-scene="qt"></div>
+            </div>
+            <div class="settings-item">
+              <div class="item-info">
+                <span class="item-label" data-i18n="fonts.scene.overlay.label">悬浮窗</span>
+                <span class="item-desc" data-i18n="fonts.scene.overlay.desc">PPT 放映时的工具栏与面板</span>
+              </div>
+              <div class="font-dropdown" data-font-lang="en-US" data-font-scene="overlay"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section" id="section-overlay">
         <div class="group-title" data-i18n="group.presentation">放映</div>
         <div class="settings-group">
@@ -1702,6 +2159,21 @@
               <span class="item-desc" data-i18n="interaction.autoHandleInk.desc">退出放映时自动处理"是否保留墨迹"</span>
             </div>
             <div class="switch" id="sw-PPT-AutoHandleInk"></div>
+          </div>
+          <div class="settings-item">
+            <div class="item-info">
+              <span class="item-label" data-i18n="general.overlayScreen.label">显示屏幕</span>
+              <span class="item-desc" data-i18n="general.overlayScreen.desc">选择工具栏显示的显示器（多屏幕环境）</span>
+            </div>
+            <div class="item-state">
+              <select class="styled-select" id="sel-Overlay-OverlayScreen" onchange="setOverlayScreen(this.value)">
+                <option value="Auto" data-i18n="general.overlayScreen.auto">自动识别</option>
+                <option value="Primary" data-i18n="general.overlayScreen.primary">主显示器</option>
+                <option value="Screen 1" data-i18n="general.overlayScreen.screen1">显示器 1</option>
+                <option value="Screen 2" data-i18n="general.overlayScreen.screen2">显示器 2</option>
+                <option value="Screen 3" data-i18n="general.overlayScreen.screen3">显示器 3</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1897,14 +2369,14 @@
 
           <!-- Pivot Tabs -->
           <div class="pivot-container">
-            <div class="pivot-item active" data-pivot="changelog" onclick="UpdateManager.switchTab('changelog')"
+            <div class="pivot-item active" data-pivot-group="update" data-pivot="changelog" onclick="UpdateManager.switchTab('changelog')"
               data-i18n="update.pivot.changelog">更新日志</div>
-            <div class="pivot-item" data-pivot="settings" onclick="UpdateManager.switchTab('settings')"
+            <div class="pivot-item" data-pivot-group="update" data-pivot="settings" onclick="UpdateManager.switchTab('settings')"
               data-i18n="update.pivot.settings">更新设置</div>
           </div>
 
           <!-- Changelog Tab -->
-          <div id="update-pivot-changelog" class="pivot-content active">
+          <div id="update-pivot-changelog" class="pivot-content active" data-pivot-group="update">
             <!-- No update checked yet -->
             <div id="update-state-idle" class="update-state-panel">
               <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
@@ -1962,7 +2434,7 @@
           </div>
 
           <!-- Settings Tab -->
-          <div id="update-pivot-settings" class="pivot-content">
+          <div id="update-pivot-settings" class="pivot-content" data-pivot-group="update">
             <div class="settings-group">
               <div class="settings-item" onclick="toggleSwitch('Update', 'AutoCheck')">
                 <div class="item-info">
@@ -1984,17 +2456,49 @@
       </div>
     </div> <!-- end of content -->
   </div> <!-- end of layout -->
+
+  <div id="fonts-warning-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-title" data-i18n="fonts.custom.warning.title">自定义字体风险提示</div>
+      <div class="modal-island">
+        <div class="modal-text" data-i18n="fonts.custom.warning.text">
+          自定义字体可能会导致界面布局错位、文字显示不全或软件崩溃。开发者将不负责处理由自定义字体引起的问题。建议仅在了解风险的情况下开启。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" onclick="closeWarningModal()" data-i18n="nav.back">返回</button>
+        <button class="modal-btn modal-btn-confirm" onclick="acknowledgeFontWarning()"
+          data-i18n="fonts.custom.warning.confirm">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="font-confirm-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-title" data-i18n="fonts.custom.confirm.title">确认更换字体</div>
+      <div class="modal-island">
+        <div id="font-confirm-text" class="modal-text"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" onclick="closeFontModal()" data-i18n="nav.back">返回</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmFontChange()"
+          data-i18n="fonts.custom.warning.confirm">确定</button>
+      </div>
+    </div>
+  </div>
 </body>
 <script>
   const I18N = {
     "zh-CN": {
       "nav.main": "常规",
+      "nav.fonts": "全局应用字体",
       "nav.overlay": "放映",
       "nav.about": "关于",
       "nav.plugins": "工具栏",
       "nav.debug": "调试",
       "nav.back": "返回",
       "section.main": "常规",
+      "section.fonts": "全局应用字体",
       "section.overlay": "放映",
       "section.plugins": "工具栏",
       "section.about": "关于",
@@ -2002,10 +2506,26 @@
       "group.language": "语言",
       "group.appearance": "外观",
       "group.startup": "启动",
+      "group.fonts": "全局应用字体",
       "group.presentation": "放映",
       "group.overlayUi": "顶层窗口",
       "group.toolbar.display": "工具栏显示",
       "group.debugOptions": "调试选项",
+      "fonts.scene.web.label": "网页界面",
+      "fonts.scene.web.desc": "设置 / 计时器 / Dialog",
+      "fonts.scene.qt.label": "主程序界面",
+      "fonts.scene.qt.desc": "Qt 界面（托盘、设置入口等）",
+      "fonts.scene.overlay.label": "悬浮窗",
+      "fonts.scene.overlay.desc": "PPT 放映时的工具栏与面板",
+      "fonts.custom.label": "自定义字体",
+      "fonts.custom.desc": "启用后可手动选择各个界面的显示字体",
+      "fonts.custom.warning.title": "自定义字体风险提示",
+      "fonts.custom.warning.text": "自定义字体可能会导致界面布局错位、文字显示不全或软件崩溃。开发者将不负责处理由自定义字体引起的问题。建议仅在了解风险的情况下开启。",
+      "fonts.custom.warning.confirm": "我知道了",
+      "fonts.custom.confirm.title": "确认更换字体",
+      "fonts.custom.confirm.text": "您当前选择的字体是：{font}\n\n请务必确认该字体不会对软件布局造成破坏性更改。开发者将不会受理并处理因自定义字体导致的任何界面显示或稳定性问题。",
+      "fonts.option.default": "默认",
+      "fonts.option.search": "搜索字体",
       "appearance.mode.label": "外观模式",
       "appearance.mode.desc": "调整应用程序的显示主题",
       "appearance.mode.light": "浅色",
@@ -2022,6 +2542,13 @@
       "general.devWatermark": "开发中版本/技术预览版本\n不保证最终品质 （{version}）",
       "general.autoShowOverlay.label": "自动显示悬浮窗",
       "general.autoShowOverlay.desc": "检测到 PPT 放映时自动显示工具栏",
+      "general.overlayScreen.label": "显示屏幕",
+      "general.overlayScreen.desc": "选择工具栏显示的显示器（多屏幕环境）",
+      "general.overlayScreen.auto": "自动识别",
+      "general.overlayScreen.primary": "主显示器",
+      "general.overlayScreen.screen1": "显示器 1",
+      "general.overlayScreen.screen2": "显示器 2",
+      "general.overlayScreen.screen3": "显示器 3",
       "general.language.label": "界面语言",
       "general.language.desc": "更改语言后需重启软件才能在所有界面生效",
       "general.language.warning": "当前选择的语言不是简体中文。为了获得最佳体验，建议使用简体中文。其他语言可能存在翻译不全或排版错位的问题。",
@@ -2098,12 +2625,14 @@
     },
     "zh-TW": {
       "nav.main": "一般",
+      "nav.fonts": "全域字型",
       "nav.overlay": "放映",
       "nav.about": "關於",
       "nav.plugins": "工具列",
       "nav.debug": "偵錯",
       "nav.back": "返回",
       "section.main": "一般",
+      "section.fonts": "全域字型",
       "section.overlay": "放映",
       "section.plugins": "工具列",
       "section.about": "關於",
@@ -2111,10 +2640,26 @@
       "group.language": "語言",
       "group.appearance": "外觀",
       "group.startup": "啟動",
+      "group.fonts": "全域字型",
       "group.presentation": "放映",
       "group.overlayUi": "頂層視窗",
       "group.toolbar.display": "工具列顯示",
       "group.debugOptions": "偵錯選項",
+      "fonts.scene.web.label": "網頁介面",
+      "fonts.scene.web.desc": "設定 / 計時器 / 對話框",
+      "fonts.scene.qt.label": "主程式介面",
+      "fonts.scene.qt.desc": "Qt 介面（系統匣、設定入口等）",
+      "fonts.scene.overlay.label": "懸浮窗",
+      "fonts.scene.overlay.desc": "PPT 放映時的工具列與面板",
+      "fonts.custom.label": "自定義字型",
+      "fonts.custom.desc": "啟用後可手動選擇各個介面的顯示字型",
+      "fonts.custom.warning.title": "自定義字型風險提示",
+      "fonts.custom.warning.text": "自定義字型可能會導致介面佈局錯位、文字顯示不全或軟體崩潰。開發者將不負責處理由自定義字型引起的問題。建議僅在了解風險的情況下開啟。",
+      "fonts.custom.warning.confirm": "我知道了",
+      "fonts.custom.confirm.title": "確認更換字型",
+      "fonts.custom.confirm.text": "您目前選擇的字型是：{font}\n\n請務必確認該字型不會對軟體佈局造成破壞性更改。開發者將不會受理並處理因自定義字型導致的任何介面顯示或穩定性問題。",
+      "fonts.option.default": "預設",
+      "fonts.option.search": "搜尋字型",
       "appearance.mode.label": "外觀模式",
       "appearance.mode.desc": "調整應用程式的顯示主題",
       "appearance.mode.light": "淺色",
@@ -2131,6 +2676,13 @@
       "general.devWatermark": "開發中版本/技術預覽版本\n不保證最終品質 （{version}）",
       "general.autoShowOverlay.label": "自動顯示懸浮窗",
       "general.autoShowOverlay.desc": "偵測到 PPT 播放時自動顯示工具列",
+      "general.overlayScreen.label": "顯示螢幕",
+      "general.overlayScreen.desc": "選擇工具列顯示的顯示器（多螢幕環境）",
+      "general.overlayScreen.auto": "自動識別",
+      "general.overlayScreen.primary": "主顯示器",
+      "general.overlayScreen.screen1": "顯示器 1",
+      "general.overlayScreen.screen2": "顯示器 2",
+      "general.overlayScreen.screen3": "顯示器 3",
       "general.language.label": "介面語言",
       "general.language.desc": "更改語言後需重新啟動才能在所有介面生效",
       "general.language.warning": "目前選擇的語言不是簡體中文。為了獲得最佳體驗，建議使用簡體中文。其他語言可能存在翻譯不全或排版錯位的問題。",
@@ -2199,12 +2751,14 @@
     },
     "ja-JP": {
       "nav.main": "一般",
+      "nav.fonts": "グローバルフォント",
       "nav.overlay": "プレゼン",
       "nav.about": "情報",
       "nav.plugins": "ツールバー",
       "nav.debug": "デバッグ",
       "nav.back": "戻る",
       "section.main": "一般",
+      "section.fonts": "グローバルフォント",
       "section.overlay": "プレゼン",
       "section.plugins": "ツールバー",
       "section.about": "情報",
@@ -2212,10 +2766,26 @@
       "group.language": "言語",
       "group.appearance": "外観",
       "group.startup": "起動",
+      "group.fonts": "グローバルフォント",
       "group.presentation": "プレゼン",
-      "group.overlayUi": "オーバーレイ",
+      "group.overlayUi": "オーバーレイ UI",
       "group.toolbar.display": "ツールバー表示",
       "group.debugOptions": "デバッグオプション",
+      "fonts.scene.web.label": "ウェブインターフェース",
+      "fonts.scene.web.desc": "設定 / タイマー / ダイアログ",
+      "fonts.scene.qt.label": "メインプログラム",
+      "fonts.scene.qt.desc": "Qt インターフェース（トレイ、設定など）",
+      "fonts.scene.overlay.label": "オーバーレイ",
+      "fonts.scene.overlay.desc": "PPT 放映時のツールバーとパネル",
+      "fonts.custom.label": "カスタムフォント",
+      "fonts.custom.desc": "有効にすると、各インターフェースの表示フォントを手動で選択できます",
+      "fonts.custom.warning.title": "カスタムフォントのリスクについて",
+      "fonts.custom.warning.text": "カスタムフォントを使用すると、レイアウトの崩れ、文字切れ、またはアプリのクラッシュが発生する可能性があります。開発者はカスタムフォントに起因する問題について責任を負いません。リスクを理解した上での使用をお勧めします。",
+      "fonts.custom.warning.confirm": "了解しました",
+      "fonts.custom.confirm.title": "フォント変更の確認",
+      "fonts.custom.confirm.text": "現在選択されているフォントは：{font}\n\nこのフォントがアプリのレイアウトに破壊的な変更を与えないことを確認してください。開発者は、カスタムフォントによる表示や安定性の問題については対応いたしかねます。",
+      "fonts.option.default": "デフォルト",
+      "fonts.option.search": "フォントを検索",
       "appearance.mode.label": "テーマモード",
       "appearance.mode.desc": "アプリの表示テーマを切り替えます",
       "appearance.mode.light": "ライト",
@@ -2232,6 +2802,13 @@
       "general.devWatermark": "開発中バージョン/テクニカルプレビュー\n品質は保証されません （{version}）",
       "general.autoShowOverlay.label": "オーバーレイを自動表示",
       "general.autoShowOverlay.desc": "PPT スライドショーを検出したらツールバーを自動表示します",
+      "general.overlayScreen.label": "表示ディスプレイ",
+      "general.overlayScreen.desc": "ツールバーを表示するディスプレイを選択します（マルチディスプレイ環境）",
+      "general.overlayScreen.auto": "自動識別",
+      "general.overlayScreen.primary": "メインディスプレイ",
+      "general.overlayScreen.screen1": "ディスプレイ 1",
+      "general.overlayScreen.screen2": "ディスプレイ 2",
+      "general.overlayScreen.screen3": "ディスプレイ 3",
       "general.language.label": "表示言語",
       "general.language.desc": "言語変更後は再起動するとすべての画面に反映されます",
       "general.language.warning": "現在選択されている言語は簡体字中国語ではありません。最高の体験を得るためには、簡体字中国語の使用をお勧めします。他の言語では翻訳が不完全であったり、レイアウトが崩れたりする可能性があります。",
@@ -2302,12 +2879,14 @@
     },
     "en-US": {
       "nav.main": "General",
+      "nav.fonts": "Global Fonts",
       "nav.overlay": "Presentation",
       "nav.about": "About",
       "nav.plugins": "Toolbar",
       "nav.debug": "Debug",
       "nav.back": "Back",
       "section.main": "General",
+      "section.fonts": "Global Fonts",
       "section.overlay": "Presentation",
       "section.plugins": "Toolbar",
       "section.about": "About",
@@ -2315,10 +2894,26 @@
       "group.language": "Language",
       "group.appearance": "Appearance",
       "group.startup": "Startup",
+      "group.fonts": "Global Fonts",
       "group.presentation": "Presentation",
-      "group.overlayUi": "Overlay",
-      "group.toolbar.display": "Toolbar",
-      "group.debugOptions": "Debug options",
+      "group.overlayUi": "Overlay UI",
+      "group.toolbar.display": "Toolbar Display",
+      "group.debugOptions": "Debug Options",
+      "fonts.scene.web.label": "Web Interface",
+      "fonts.scene.web.desc": "Settings / Timers / Dialogs",
+      "fonts.scene.qt.label": "Main Program",
+      "fonts.scene.qt.desc": "Qt Interface (Tray, Settings entry, etc.)",
+      "fonts.scene.overlay.label": "Overlay",
+      "fonts.scene.overlay.desc": "Toolbar and Panels during PPT show",
+      "fonts.custom.label": "Custom Font",
+      "fonts.custom.desc": "Enable to manually select fonts for each interface",
+      "fonts.custom.warning.title": "Custom Font Risk Warning",
+      "fonts.custom.warning.text": "Custom fonts may cause layout misalignment, incomplete text display, or software crashes. The developer is not responsible for issues caused by custom fonts. It is recommended to enable only if you understand the risks.",
+      "fonts.custom.warning.confirm": "I understand",
+      "fonts.custom.confirm.title": "Confirm Font Change",
+      "fonts.custom.confirm.text": "The font you currently selected is: {font}\n\nPlease ensure that this font does not cause destructive changes to the software layout. The developer will not accept or handle any interface display or stability issues caused by custom fonts.",
+      "fonts.option.default": "Default",
+      "fonts.option.search": "Search fonts",
       "appearance.mode.label": "Theme mode",
       "appearance.mode.desc": "Adjust the display theme of the application",
       "appearance.mode.light": "Light",
@@ -2335,6 +2930,13 @@
       "general.devWatermark": "In-Development/Technical Preview\nFinal quality not guaranteed ({version})",
       "general.autoShowOverlay.label": "Auto show overlay",
       "general.autoShowOverlay.desc": "Automatically show toolbar when PPT slideshow is detected",
+      "general.overlayScreen.label": "Display Screen",
+      "general.overlayScreen.desc": "Select which monitor to show the toolbar on (multi-screen)",
+      "general.overlayScreen.auto": "Auto Detect",
+      "general.overlayScreen.primary": "Primary Monitor",
+      "general.overlayScreen.screen1": "Screen 1",
+      "general.overlayScreen.screen2": "Screen 2",
+      "general.overlayScreen.screen3": "Screen 3",
       "general.language.label": "Interface language",
       "general.language.desc": "Restart is required for the language to apply everywhere",
       "general.language.warning": "The selected language may be incomplete or misaligned. For the best experience, Simplified Chinese is recommended.",
@@ -2408,6 +3010,75 @@
 
   let currentLanguage = "zh-CN";
 
+  let pendingFontChange = null;
+
+  function toggleCustomFont() {
+    if (!settings.Fonts) settings.Fonts = {};
+    const current = !!settings.Fonts.CustomFont;
+
+    if (!current) {
+      const modal = document.getElementById("fonts-warning-modal");
+      if (modal) modal.classList.add("active");
+    } else {
+      settings.Fonts.CustomFont = false;
+      setSwitch("Fonts", "CustomFont");
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.save_setting) {
+        window.pywebview.api.save_setting("Fonts", "CustomFont", false);
+      }
+      renderFontSelects();
+    }
+  }
+
+  function acknowledgeFontWarning() {
+    const modal = document.getElementById("fonts-warning-modal");
+    if (modal) modal.classList.remove("active");
+
+    if (!settings.Fonts) settings.Fonts = {};
+    settings.Fonts.CustomFont = true;
+    
+    // Force UI update
+    setSwitch("Fonts", "CustomFont");
+    
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_setting) {
+      window.pywebview.api.save_setting("Fonts", "CustomFont", true);
+    }
+    renderFontSelects();
+  }
+
+  function closeWarningModal() {
+    const modal = document.getElementById("fonts-warning-modal");
+    if (modal) modal.classList.remove("active");
+  }
+
+  function closeFontModal() {
+    const modal = document.getElementById("font-confirm-modal");
+    if (modal) modal.classList.remove("active");
+    pendingFontChange = null;
+  }
+
+  function confirmFontChange() {
+    if (pendingFontChange) {
+      const { lang, scene, value } = pendingFontChange;
+      setFontProfileReal(lang, scene, value);
+    }
+    closeFontModal();
+  }
+
+  function setFontProfileReal(lang, scene, value) {
+    ensureFontProfiles();
+    const v = (typeof value === "string") ? value : "";
+    if (!settings.Fonts.Profiles[lang]) settings.Fonts.Profiles[lang] = {};
+    settings.Fonts.Profiles[lang][scene] = v;
+
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_setting) {
+      window.pywebview.api.save_setting("Fonts", "Profiles", settings.Fonts.Profiles);
+    }
+    if (lang === currentLanguage && scene === "web") {
+      applyLanguageFont();
+    }
+    renderFontSelects();
+  }
+
   function getText(key) {
     const langPack = I18N[currentLanguage] || I18N["zh-CN"];
     if (langPack && key in langPack) return langPack[key];
@@ -2416,17 +3087,270 @@
     return "";
   }
 
+  const FONT_LANGS = ["zh-CN", "zh-TW", "ja-JP", "en-US"];
+  const FONT_SCENES = ["web", "qt", "overlay"];
+  let systemFonts = [];
+  let systemFontsLoaded = false;
+
+  function getDefaultFontStack(lang) {
+    const isSpecial = lang === "zh-TW" || lang === "ja-JP";
+    if (lang === "zh-TW") {
+      return "\"Microsoft JhengHei\", \"MiSans Latin\", \"HarmonyOS Sans TC\", \"SF Pro\", \"苹方-繁\", \"PingFang TC\", system-ui, -apple-system, sans-serif";
+    }
+    if (lang === "ja-JP") {
+      return "\"Yu Gothic UI\", \"Meiryo\", \"MiSans Latin\", \"HarmonyOS Sans JP\", \"SF Pro\", system-ui, -apple-system, sans-serif";
+    }
+    return "\"MiSans Latin\", \"HarmonyOS Sans SC\", \"SF Pro\", \"苹方-简\", \"PingFang SC\", \"Segoe UI\", \"Microsoft YaHei\", system-ui, -apple-system, sans-serif";
+  }
+
+  function ensureFontProfiles() {
+    if (!settings.Fonts) settings.Fonts = {};
+    if (!settings.Fonts.Profiles || typeof settings.Fonts.Profiles !== "object") settings.Fonts.Profiles = {};
+    FONT_LANGS.forEach(lang => {
+      if (!settings.Fonts.Profiles[lang] || typeof settings.Fonts.Profiles[lang] !== "object") {
+        settings.Fonts.Profiles[lang] = {};
+      }
+      FONT_SCENES.forEach(scene => {
+        const v = settings.Fonts.Profiles[lang][scene];
+        if (typeof v !== "string") settings.Fonts.Profiles[lang][scene] = "";
+      });
+    });
+  }
+
+  function getFontSelection(lang, scene) {
+    ensureFontProfiles();
+    const byLang = settings.Fonts.Profiles[lang] || {};
+    const v = byLang[scene];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (scene === "overlay") {
+      const qt = byLang.qt;
+      if (typeof qt === "string" && qt.trim()) return qt.trim();
+    }
+    return "";
+  }
+
+  function buildFontStack(lang, scene) {
+    const selected = getFontSelection(lang, scene);
+    const base = getDefaultFontStack(lang);
+    if (!selected) return base;
+    const safe = selected.replace(/"/g, '\\"');
+    return `"${safe}", ${base}`;
+  }
+
+  function getDefaultFontLabel(lang, scene) {
+    if (scene === "web") {
+      if (lang === "zh-TW") {
+        return "Microsoft JhengHei / MiSans / SF / PingFang TC";
+      }
+      if (lang === "ja-JP") {
+        return "Yu Gothic UI / Meiryo / MiSans / SF";
+      }
+      return "MiSans / HarmonyOS / SF / 苹方";
+    }
+    if (scene === "qt") {
+      return "MiSans VF";
+    }
+    if (scene === "overlay") {
+      return "MiSans VF";
+    }
+    return "";
+  }
+
+  function requestSystemFonts() {
+    if (systemFontsLoaded) return;
+    if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_system_fonts) return;
+    window.pywebview.api.get_system_fonts().then(res => {
+      systemFonts = Array.isArray(res) ? res.filter(s => typeof s === "string" && s.trim()) : [];
+      systemFontsLoaded = true;
+      renderFontSelects();
+    }).catch(() => {
+      systemFonts = [];
+      systemFontsLoaded = true;
+      renderFontSelects();
+    });
+  }
+
+  function setFontDropdownLabel(labelSpan, text) {
+    const inner = labelSpan.querySelector(".font-dropdown-label-inner");
+    if (!inner) return;
+    inner.textContent = text;
+    labelSpan.classList.remove("marquee");
+    requestAnimationFrame(() => {
+      if (labelSpan.scrollWidth > labelSpan.clientWidth + 4) {
+        labelSpan.classList.add("marquee");
+      }
+    });
+  }
+
+  function showFontWarningDialog(fontName, fontLang) {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.show_font_warning) {
+      window.pywebview.api.show_font_warning(fontName, fontLang);
+    }
+  }
+
+  function renderFontSelects() {
+    if (!settings) return;
+    ensureFontProfiles();
+    const isCustomEnabled = !!(settings.Fonts && settings.Fonts.CustomFont);
+
+    const selectionArea = document.getElementById("font-selection-area");
+    if (selectionArea) {
+      if (isCustomEnabled) selectionArea.classList.remove("disabled");
+      else selectionArea.classList.add("disabled");
+    }
+
+    FONT_LANGS.forEach(lang => {
+      FONT_SCENES.forEach(scene => {
+        const el = document.querySelector(`.font-dropdown[data-font-lang="${lang}"][data-font-scene="${scene}"]`);
+        if (!el) return;
+
+        if (!isCustomEnabled) {
+          el.classList.add("disabled");
+        } else {
+          el.classList.remove("disabled");
+        }
+
+        const selected = getFontSelection(lang, scene);
+        const baseLabel = getText("fonts.option.default") || "默认";
+        const detail = getDefaultFontLabel(lang, scene);
+        const defaultLabel = detail ? `${baseLabel} (${detail})` : baseLabel;
+        const options = [{ value: "", label: defaultLabel }];
+        (systemFonts || []).forEach(name => {
+          options.push({ value: name, label: name });
+        });
+        el.innerHTML = "";
+        el.classList.remove("open");
+        const toggle = document.createElement("div");
+        toggle.className = "font-dropdown-toggle";
+        const labelSpan = document.createElement("div");
+        labelSpan.className = "font-dropdown-label";
+        const labelInner = document.createElement("div");
+        labelInner.className = "font-dropdown-label-inner";
+        labelSpan.appendChild(labelInner);
+        toggle.appendChild(labelSpan);
+        const icon = document.createElement("span");
+        icon.className = "font-dropdown-icon";
+        toggle.appendChild(icon);
+        const menu = document.createElement("div");
+        menu.className = "font-dropdown-menu";
+
+        const header = document.createElement("div");
+        header.className = "font-dropdown-menu-header";
+        const searchInput = document.createElement("input");
+        searchInput.type = "text";
+        searchInput.className = "font-dropdown-search";
+        searchInput.placeholder = getText("fonts.option.search") || "搜索字体";
+        header.appendChild(searchInput);
+        menu.appendChild(header);
+
+        options.forEach((opt, index) => {
+          const item = document.createElement("div");
+          item.className = "font-dropdown-option";
+          item.textContent = opt.label;
+          item.dataset.value = opt.value;
+          item.dataset.label = opt.label.toLowerCase();
+          if (index === 0) item.dataset.default = "1";
+          if (opt.value === selected) {
+            item.classList.add("active");
+            setFontDropdownLabel(labelSpan, opt.label);
+          }
+          item.addEventListener("click", () => {
+            if (!isCustomEnabled) return;
+
+            const all = menu.querySelectorAll(".font-dropdown-option");
+            all.forEach(x => x.classList.remove("active"));
+            item.classList.add("active");
+            setFontDropdownLabel(labelSpan, opt.label);
+            el.dataset.value = opt.value;
+            
+            setFontProfile(lang, scene, opt.value, opt.label);
+            el.classList.remove("open");
+          });
+          menu.appendChild(item);
+        });
+        if (!labelInner.textContent) {
+          setFontDropdownLabel(labelSpan, defaultLabel);
+        }
+
+        searchInput.addEventListener("input", () => {
+          const q = searchInput.value.trim().toLowerCase();
+          const items = menu.querySelectorAll(".font-dropdown-option");
+          items.forEach(it => {
+            if (it.dataset.default === "1") {
+              it.style.display = "";
+              return;
+            }
+            const lbl = it.dataset.label || "";
+            it.style.display = !q || lbl.includes(q) ? "" : "none";
+          });
+        });
+        toggle.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isOpen = el.classList.contains("open");
+          document.querySelectorAll(".font-dropdown.open").forEach(dd => {
+            if (dd !== el) dd.classList.remove("open");
+          });
+          if (!isOpen) {
+            el.classList.add("open");
+          } else {
+            el.classList.remove("open");
+          }
+        });
+        el.appendChild(toggle);
+        el.appendChild(menu);
+      });
+    });
+  }
+
+  function setFontProfile(lang, scene, value, label) {
+    if (!value) {
+      setFontProfileReal(lang, scene, value);
+      return;
+    }
+
+    pendingFontChange = { lang, scene, value };
+    const modal = document.getElementById("font-confirm-modal");
+    const confirmText = document.getElementById("font-confirm-text");
+    if (modal && confirmText) {
+      const template = getText("fonts.custom.confirm.text");
+      confirmText.textContent = template ? template.replace("{font}", label) : `您当前选择的字体是：${label}\n请确定改字体不会对软件的布局造成破坏性的更改\n开发者将不会处理自定义字体导致的问题！`;
+      modal.classList.add("active");
+    } else {
+      setFontProfileReal(lang, scene, value);
+    }
+  }
+
+  const FontManager = {
+    switchTab(lang) {
+      const items = document.querySelectorAll('.pivot-item[data-pivot-group="fonts"]');
+      const contents = document.querySelectorAll('.pivot-content[data-pivot-group="fonts"]');
+      items.forEach(item => item.classList.toggle('active', item.getAttribute('data-pivot') === lang));
+      contents.forEach(content => content.classList.toggle('active', content.getAttribute('data-pivot-content') === lang));
+    }
+  };
+
+  function setOverlayScreen(value) {
+    if (!settings.Overlay) settings.Overlay = {};
+    settings.Overlay.OverlayScreen = value;
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_setting) {
+      window.pywebview.api.save_setting("Overlay", "OverlayScreen", value);
+    }
+  }
+
   function applyLanguageFont() {
-    const isSpecial = currentLanguage === "zh-TW" || currentLanguage === "ja-JP";
-    const fontStack = isSpecial
-      ? "\"MiSans Latin\", \"Yu Gothic UI\", system-ui, sans-serif"
-      : "\"MiSans Latin\", \"HarmonyOS Sans SC\", \"Source Han Sans CN\", \"Noto Sans CJK SC\", \"Microsoft YaHei\", system-ui, sans-serif";
+    const fontStack = buildFontStack(currentLanguage, "web");
     document.documentElement.style.setProperty("--font-stack", fontStack);
   }
+
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".font-dropdown.open").forEach(dd => dd.classList.remove("open"));
+  });
 
   function applyI18n() {
     document.documentElement.lang = currentLanguage;
     applyLanguageFont();
+    FontManager.switchTab(currentLanguage);
+    renderFontSelects();
 
     const warningEl = document.getElementById("language-warning");
     if (warningEl) {
@@ -2548,6 +3472,8 @@
   window.addEventListener('pywebviewready', () => {
     if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_settings) return;
 
+    requestSystemFonts();
+
     window.pywebview.api.get_settings().then(function (res) {
       if (res && Object.keys(res).length > 0) {
         settings = res;
@@ -2572,6 +3498,16 @@
     setSwitch("Toolbar", "ShowToolbarText");
     setSwitch("Update", "AutoCheck");
     setSwitch("Update", "BetaProgram");
+    setSwitch("Fonts", "CustomFont");
+
+    renderFontSelects();
+
+    // Overlay Screen
+    const overlayScreen = settings.Overlay?.OverlayScreen || "Auto";
+    const screenEl = document.getElementById("sel-Overlay-OverlayScreen");
+    if (screenEl) {
+      screenEl.value = overlayScreen;
+    }
 
     // Splash Mode
     const splashMode = settings.General?.SplashMode || "Always";
@@ -2641,6 +3577,8 @@
     }
 
     applyI18n();
+    FontManager.switchTab(currentLanguage);
+    renderFontSelects();
     loadToolbarApps();
 
     // Ensure toolbar action buttons are correctly bound
@@ -3269,8 +4207,8 @@
 
     // Switch between tabs
     switchTab(tabName) {
-      const items = document.querySelectorAll('.pivot-item');
-      const contents = document.querySelectorAll('.pivot-content');
+      const items = document.querySelectorAll('.pivot-item[data-pivot-group="update"]');
+      const contents = document.querySelectorAll('.pivot-content[data-pivot-group="update"]');
 
       items.forEach(item => {
         if (item.getAttribute('data-pivot') === tabName) {

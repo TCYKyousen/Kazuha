@@ -19,7 +19,7 @@
       --ring-bg: rgba(0, 0, 0, 0.05);
       --dialog-overlay: rgba(0, 0, 0, 0.4);
       --dialog-icon-bg: #F2F7FF;
-      --font-stack: "MiSans Latin", "Source Han Sans SC", "Source Han Sans CN", "Noto Sans CJK SC", "Microsoft YaHei", system-ui, sans-serif;
+      --font-stack: "MiSans Latin", "HarmonyOS Sans SC", "SF Pro", "苹方-简", "PingFang SC", "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
     }
 
     [data-theme="dark"] {
@@ -788,12 +788,29 @@
       return "";
     }
 
+    function getDefaultFontStack(lang) {
+      const isSpecial = lang === "zh-TW" || lang === "ja-JP";
+      if (lang === "zh-TW") {
+        return "\"Microsoft JhengHei\", \"MiSans Latin\", \"HarmonyOS Sans TC\", \"SF Pro\", \"苹方-繁\", \"PingFang TC\", system-ui, -apple-system, sans-serif";
+      }
+      if (lang === "ja-JP") {
+        return "\"Yu Gothic UI\", \"Meiryo\", \"MiSans Latin\", \"HarmonyOS Sans JP\", \"SF Pro\", system-ui, -apple-system, sans-serif";
+      }
+      return "\"MiSans Latin\", \"HarmonyOS Sans SC\", \"SF Pro\", \"苹方-简\", \"PingFang SC\", \"Segoe UI\", \"Microsoft YaHei\", system-ui, -apple-system, sans-serif";
+    }
+
+    function getSelectedWebFont(lang) {
+      const profiles = settings && settings.Fonts && settings.Fonts.Profiles;
+      const langProfile = profiles && profiles[lang];
+      const v = langProfile && langProfile.web;
+      return (typeof v === "string" && v.trim()) ? v.trim() : "";
+    }
+
     function applyLanguageFont() {
-      const isSpecial = currentLanguage === "zh-TW" || currentLanguage === "ja-JP";
-      const fontStack = isSpecial
-        ? "\"MiSans Latin\", \"Yu Gothic UI\", system-ui, sans-serif"
-        : "\"MiSans Latin\", \"Source Han Sans SC\", \"Source Han Sans CN\", \"Noto Sans CJK SC\", \"Microsoft YaHei\", system-ui, sans-serif";
-      document.documentElement.style.setProperty("--font-stack", fontStack);
+      const base = getDefaultFontStack(currentLanguage);
+      const selected = getSelectedWebFont(currentLanguage);
+      const stack = selected ? `"${selected.replace(/"/g, '\\"')}", ${base}` : base;
+      document.documentElement.style.setProperty("--font-stack", stack);
     }
 
     function formatTotalSecondsText(totalSec) {

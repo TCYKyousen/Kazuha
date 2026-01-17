@@ -36,6 +36,14 @@ class Config(QConfig):
 
     autoHandleInk = ConfigItem("PPT", "AutoHandleInk", True, BoolValidator())
 
+    overlayScreen = OptionsConfigItem(
+        "Overlay",
+        "OverlayScreen",
+        "Auto",
+        OptionsValidator(["Auto", "Primary", "Screen 1", "Screen 2", "Screen 3"]),
+        restart=False,
+    )
+
     splashMode = OptionsConfigItem(
         "General",
         "SplashMode",
@@ -122,6 +130,7 @@ def _bind_auto_save():
     cfg.showUndoRedo.valueChanged.connect(lambda *_: _save_cfg())
     cfg.showStatusBar.valueChanged.connect(lambda *_: _save_cfg())
     cfg.autoHandleInk.valueChanged.connect(lambda *_: _save_cfg())
+    cfg.overlayScreen.valueChanged.connect(lambda *_: _save_cfg())
     cfg.splashMode.valueChanged.connect(lambda *_: _save_cfg())
     cfg.splashStartTime.valueChanged.connect(lambda *_: _save_cfg())
     cfg.splashEndTime.valueChanged.connect(lambda *_: _save_cfg())

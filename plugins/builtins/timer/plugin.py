@@ -50,6 +50,8 @@ class TimerPlugin(AssistantPlugin):
         html_path = os.path.join(base_dir, "timer.html")
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(base_dir)))
         main_path = os.path.join(root_dir, "main.py")
+        assets_path = os.path.join(base_dir, "assets", "timer_ring.ogg")
+        
         screen = QApplication.primaryScreen()
         screen_geo = screen.geometry() if screen else QWidget().screen().geometry()
         width = str(int(min(max(600, screen_geo.width() * 0.35), screen_geo.width() * 0.5)))
@@ -57,6 +59,7 @@ class TimerPlugin(AssistantPlugin):
 
         env = os.environ.copy()
         env["SETTINGS_PATH"] = SETTINGS_PATH
+        env["ASSETS_PATH"] = assets_path
         env["TIMER_REMAINING"] = str(self._timer_manager.remaining_seconds)
         env["TIMER_IS_RUNNING"] = "true" if self._timer_manager.is_running else "false"
 

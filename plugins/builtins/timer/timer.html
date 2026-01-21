@@ -1467,16 +1467,6 @@
       updateButtonState();
     }
 
-    const ringAudio = new Audio('timer_ring.ogg');
-
-    function playTimerRing() {
-      ringAudio.currentTime = 0;
-      const res = ringAudio.play();
-      if (res && res.catch) {
-        res.catch(e => console.error('Audio play error:', e));
-      }
-    }
-
     function finishCountdown() {
       clearInterval(tmInterval);
       tmRemaining = 0;
@@ -1495,7 +1485,12 @@
       countdownUI.classList.remove('active');
       bellUI.style.display = 'flex';
 
-      playTimerRing();
+      if (window.pywebview && window.pywebview.api.get_assets_path) {
+        window.pywebview.api.get_assets_path().then(path => {
+          const audio = new Audio('file:///' + path.replace(/\\/g, '/'));
+          audio.play().catch(e => console.error('Audio play error:', e));
+        });
+      }
 
       updateButtonState();
     }

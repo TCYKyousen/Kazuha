@@ -592,6 +592,9 @@ class Api:
             self._window.destroy()
         sys.exit(0)
 
+    def get_assets_path(self):
+        return os.environ.get("ASSETS_PATH", "")
+
     def get_timer_state(self):
         return {
             "remaining": int(os.environ.get("TIMER_REMAINING", 0)),

@@ -2883,6 +2883,37 @@
       }
     }
 
+    /* Monet Preview Modal */
+    #monet-preview-modal .modal-dialog {
+      max-width: 400px;
+    }
+
+    .monet-palette-preview {
+      display: flex;
+      gap: 8px;
+      margin: 20px 0;
+      justify-content: center;
+    }
+
+    .monet-color-swatch {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .monet-color-swatch::after {
+      content: attr(data-label);
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
     .settings-item.disabled {
       opacity: 0.5;
       pointer-events: none;
@@ -3887,6 +3918,19 @@
       </div>
     </div>
   </div>
+  <div id="monet-preview-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-title" data-i18n="appearance.theme.monet.preview.title">莫奈配色预览</div>
+      <div class="modal-island">
+        <div id="monet-preview-text" class="modal-text" data-i18n="appearance.theme.monet.preview.desc">从桌面壁纸提取到以下配色，确认后将应用到主题</div>
+        <div class="monet-palette-preview" id="monet-palette-preview"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" onclick="closeMonetModal()" data-i18n="nav.back">返回</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmMonetTheme()" data-i18n="appearance.theme.monet.apply">应用</button>
+      </div>
+    </div>
+  </div>
   <template id="theme-template-default" data-theme-id="default" data-theme-name="默认" data-theme-desc="Kazuha 默认主题" data-theme-name-key="appearance.theme.default" data-theme-desc-key="appearance.theme.default.desc">
     <div class="theme-preview-root">
       <div class="theme-preview-app">
@@ -4022,6 +4066,18 @@
       "appearance.theme.mungBean.desc": "清新薄荷与凉感绿意",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘微甜与活力暖色",
+      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet.desc": "从桌面壁纸提取颜色",
+      "appearance.theme.monet.preview.title": "莫奈配色预览",
+      "appearance.theme.monet.preview.desc": "从桌面壁纸提取到以下配色，确认后将应用到主题",
+      "appearance.theme.monet.preview.loading": "正在从桌面壁纸取色...",
+      "appearance.theme.monet.preview.empty": "未能从壁纸获取颜色",
+      "appearance.theme.monet.preview.error": "取色失败",
+      "appearance.theme.monet.apply": "应用",
+      "appearance.theme.monet.color.primary": "主色",
+      "appearance.theme.monet.color.background": "背景",
+      "appearance.theme.monet.color.surface": "表面",
+      "appearance.theme.monet.color.text": "文字",
       "general.runAtStartup.label": "开机自启",
       "general.splashMode.label": "启动画面",
       "general.splashMode.always": "每次都显示",
@@ -4196,6 +4252,18 @@
       "appearance.theme.mungBean.desc": "清新薄荷與涼感綠意",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘微甜與活力暖色",
+      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet.desc": "從桌面桌布提取顏色",
+      "appearance.theme.monet.preview.title": "莫奈配色預覽",
+      "appearance.theme.monet.preview.desc": "從桌面桌布提取到以下配色，確認後將套用到主題",
+      "appearance.theme.monet.preview.loading": "正在從桌面桌布取色...",
+      "appearance.theme.monet.preview.empty": "未能從桌布取得顏色",
+      "appearance.theme.monet.preview.error": "取色失敗",
+      "appearance.theme.monet.apply": "套用",
+      "appearance.theme.monet.color.primary": "主色",
+      "appearance.theme.monet.color.background": "背景",
+      "appearance.theme.monet.color.surface": "表面",
+      "appearance.theme.monet.color.text": "文字",
       "general.runAtStartup.label": "開機自啟",
       "general.splashMode.label": "啟動畫面",
       "general.splashMode.always": "每次都顯示",
@@ -4365,6 +4433,18 @@
       "appearance.theme.mungBean.desc": "ミントの清涼感と若草色",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘の甘さと温かい色味",
+      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet.desc": "デスクトップの壁紙から色を抽出",
+      "appearance.theme.monet.preview.title": "モネ配色プレビュー",
+      "appearance.theme.monet.preview.desc": "壁紙から抽出した配色を確認して適用します",
+      "appearance.theme.monet.preview.loading": "壁紙から配色を取得中...",
+      "appearance.theme.monet.preview.empty": "壁紙から色を取得できませんでした",
+      "appearance.theme.monet.preview.error": "色の取得に失敗しました",
+      "appearance.theme.monet.apply": "適用",
+      "appearance.theme.monet.color.primary": "メイン",
+      "appearance.theme.monet.color.background": "背景",
+      "appearance.theme.monet.color.surface": "サーフェス",
+      "appearance.theme.monet.color.text": "文字",
       "general.runAtStartup.label": "起動時に自動実行",
       "general.splashMode.label": "スプラッシュ画面",
       "general.splashMode.always": "常に表示",
@@ -4539,6 +4619,18 @@
       "appearance.theme.mungBean.desc": "Minty freshness and mellow greens",
       "appearance.theme.orangeWish": "Orange Wish",
       "appearance.theme.orangeWish.desc": "Sweet citrus with warm energy",
+      "appearance.theme.monet": "Monet palette",
+      "appearance.theme.monet.desc": "Extract colors from desktop wallpaper",
+      "appearance.theme.monet.preview.title": "Monet palette preview",
+      "appearance.theme.monet.preview.desc": "Preview the extracted palette and apply it to the theme",
+      "appearance.theme.monet.preview.loading": "Extracting colors from wallpaper...",
+      "appearance.theme.monet.preview.empty": "No colors extracted from wallpaper",
+      "appearance.theme.monet.preview.error": "Failed to extract colors",
+      "appearance.theme.monet.apply": "Apply",
+      "appearance.theme.monet.color.primary": "Primary",
+      "appearance.theme.monet.color.background": "Background",
+      "appearance.theme.monet.color.surface": "Surface",
+      "appearance.theme.monet.color.text": "Text",
       "general.runAtStartup.label": "Run at startup",
       "general.splashMode.label": "Startup Splash",
       "general.splashMode.always": "Always show",
@@ -4717,6 +4809,7 @@
         window.pywebview.api.save_setting("Fonts", "CustomFont", false);
       }
       renderFontSelects();
+      applyLanguageFont();
     }
   }
 
@@ -4738,6 +4831,7 @@
       requestSystemFonts(true);
     }
     renderFontSelects();
+    applyLanguageFont();
   }
 
   function closeWarningModal() {
@@ -4816,6 +4910,7 @@
   }
 
   function getFontSelection(lang, scene) {
+    if (settings.Fonts && !settings.Fonts.CustomFont) return "";
     ensureFontProfiles();
     const byLang = settings.Fonts.Profiles[lang] || {};
     const v = byLang[scene];
@@ -4968,6 +5063,11 @@
               item.style.cursor = "default";
               item.style.pointerEvents = "none";
           } else {
+              if (opt.value) {
+                item.style.fontFamily = `"${opt.value}"`;
+                item.style.fontSize = "16px";
+              }
+
               if (opt.value === selected) {
                 item.classList.add("active");
                 setFontDropdownLabel(labelSpan, opt.label);
@@ -5048,30 +5148,293 @@
     }
   };
 
+  const MonetTheme = {
+    palette: null,
+    previewPalette: null
+  };
+
+  const monetVars = [
+    "--bg-app",
+    "--bg-surface",
+    "--bg-color",
+    "--sidebar-bg",
+    "--border-color",
+    "--text-primary",
+    "--text-secondary",
+    "--accent-blue",
+    "--divider",
+    "--card-bg",
+    "--card-border",
+    "--item-hover",
+    "--shadow-color",
+    "--shadow-main",
+    "--logo-glow",
+    "--hyperos-g1",
+    "--hyperos-g2",
+    "--hyperos-g3",
+    "--hyperos-g4",
+    "--hyperos-g5",
+    "--overlay-toolbar-bg",
+    "--overlay-toolbar-border",
+    "--overlay-toolbar-line",
+    "--overlay-toolbar-shadow",
+    "--overlay-toolbar-fg",
+    "--overlay-button-hover",
+    "--overlay-button-active",
+    "--overlay-status-bg",
+    "--overlay-status-fg",
+    "--overlay-status-sep",
+    "--overlay-popup-bg",
+    "--overlay-popup-border",
+    "--overlay-popup-fg",
+    "--overlay-page-bg",
+    "--overlay-page-border",
+    "--overlay-page-fg",
+    "--overlay-page-hint",
+    "--overlay-page-hover",
+    "--overlay-page-shadow",
+    "--overlay-reload-mask",
+    "--overlay-reload-card",
+    "--overlay-reload-text",
+    "--overlay-dev-watermark"
+  ];
+
+  function getThemeVariant(mode) {
+    const m = mode || "Light";
+    return m === "Auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : (m === "Dark" ? "dark" : "light");
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function hexToRgb(hex) {
+    if (!hex) return null;
+    let h = hex.trim().replace("#", "");
+    if (h.length === 3) {
+      h = h.split("").map(ch => ch + ch).join("");
+    }
+    if (h.length !== 6) return null;
+    const num = parseInt(h, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  }
+
+  function rgbToHex(r, g, b) {
+    const toHex = v => v.toString(16).padStart(2, "0");
+    return `#${toHex(clamp(r, 0, 255))}${toHex(clamp(g, 0, 255))}${toHex(clamp(b, 0, 255))}`;
+  }
+
+  function mixColor(base, target, ratio) {
+    const b = hexToRgb(base);
+    const t = hexToRgb(target);
+    if (!b || !t) return base;
+    const r = Math.round(b.r + (t.r - b.r) * ratio);
+    const g = Math.round(b.g + (t.g - b.g) * ratio);
+    const bVal = Math.round(b.b + (t.b - b.b) * ratio);
+    return rgbToHex(r, g, bVal);
+  }
+
+  function rgba(hex, alpha) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return "";
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+  }
+
+  function normalizeMonetPalette(palette) {
+    if (!palette || typeof palette !== "object") return null;
+    const primary = palette.primary || palette.accent;
+    const background = palette.background;
+    const surface = palette.surface;
+    const text = palette.text;
+    if (!primary || !background || !surface || !text) return null;
+    return { primary, background, surface, text };
+  }
+
+  function clearMonetPalette() {
+    const root = document.documentElement.style;
+    monetVars.forEach(v => root.removeProperty(v));
+  }
+
+  function applyMonetPalette(palette, mode) {
+    const variant = getThemeVariant(mode);
+    const isDark = variant === "dark";
+    const accent = palette.primary;
+    const bgApp = isDark ? mixColor(accent, "#000000", 0.78) : palette.background;
+    const bgSurface = isDark ? mixColor(accent, "#000000", 0.7) : palette.surface;
+    const textPrimary = isDark ? "#F5F5F5" : palette.text;
+    const textSecondary = isDark ? "rgba(255, 255, 255, 0.6)" : rgba(textPrimary, 0.7);
+    const divider = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)";
+    const border = divider;
+    const cardBg = isDark ? rgba(accent, 0.18) : rgba(accent, 0.1);
+    const cardBorder = isDark ? rgba(accent, 0.28) : rgba(accent, 0.2);
+    const itemHover = isDark ? rgba(accent, 0.22) : rgba(accent, 0.14);
+    const shadowColor = isDark ? "rgba(0, 0, 0, 0.5)" : rgba(accent, 0.18);
+    const shadowMain = isDark ? "0 12px 34px var(--shadow-color)" : "0 6px 22px var(--shadow-color)";
+    const logoGlow = isDark ? rgba(accent, 0.28) : rgba(accent, 0.22);
+    const hyper1 = mixColor(bgApp, accent, 0.15);
+    const hyper2 = mixColor(bgSurface, accent, 0.12);
+    const hyper3 = mixColor(bgSurface, accent, 0.2);
+    const hyper4 = mixColor(bgApp, accent, 0.25);
+    const hyper5 = mixColor(bgSurface, "#ffffff", isDark ? 0.08 : 0.3);
+
+    const root = document.documentElement.style;
+    root.setProperty("--bg-app", bgApp);
+    root.setProperty("--bg-surface", bgSurface);
+    root.setProperty("--bg-color", bgSurface);
+    root.setProperty("--sidebar-bg", bgSurface);
+    root.setProperty("--border-color", border);
+    root.setProperty("--text-primary", textPrimary);
+    root.setProperty("--text-secondary", textSecondary);
+    root.setProperty("--accent-blue", accent);
+    root.setProperty("--divider", divider);
+    root.setProperty("--card-bg", cardBg);
+    root.setProperty("--card-border", cardBorder);
+    root.setProperty("--item-hover", itemHover);
+    root.setProperty("--shadow-color", shadowColor);
+    root.setProperty("--shadow-main", shadowMain);
+    root.setProperty("--logo-glow", logoGlow);
+    root.setProperty("--hyperos-g1", hyper1);
+    root.setProperty("--hyperos-g2", hyper2);
+    root.setProperty("--hyperos-g3", hyper3);
+    root.setProperty("--hyperos-g4", hyper4);
+    root.setProperty("--hyperos-g5", hyper5);
+    root.setProperty("--overlay-toolbar-bg", bgSurface);
+    root.setProperty("--overlay-toolbar-border", divider);
+    root.setProperty("--overlay-toolbar-line", divider);
+    root.setProperty("--overlay-toolbar-shadow", shadowColor);
+    root.setProperty("--overlay-toolbar-fg", textPrimary);
+    root.setProperty("--overlay-button-hover", itemHover);
+    root.setProperty("--overlay-button-active", isDark ? rgba(accent, 0.3) : rgba(accent, 0.22));
+    root.setProperty("--overlay-status-bg", isDark ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.25)");
+    root.setProperty("--overlay-status-fg", "#FFFFFF");
+    root.setProperty("--overlay-status-sep", "rgba(255, 255, 255, 0.3)");
+    root.setProperty("--overlay-popup-bg", bgSurface);
+    root.setProperty("--overlay-popup-border", isDark ? "rgba(255, 255, 255, 0.18)" : "rgba(0, 0, 0, 0.12)");
+    root.setProperty("--overlay-popup-fg", textPrimary);
+    root.setProperty("--overlay-page-bg", bgSurface);
+    root.setProperty("--overlay-page-border", isDark ? "rgba(255, 255, 255, 0.18)" : "rgba(0, 0, 0, 0.12)");
+    root.setProperty("--overlay-page-fg", textPrimary);
+    root.setProperty("--overlay-page-hint", isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.5)");
+    root.setProperty("--overlay-page-hover", itemHover);
+    root.setProperty("--overlay-page-shadow", shadowColor);
+    root.setProperty("--overlay-reload-mask", isDark ? "rgba(0, 0, 0, 0.48)" : "rgba(0, 0, 0, 0.43)");
+    root.setProperty("--overlay-reload-card", isDark ? "rgba(30, 30, 30, 0.86)" : "rgba(30, 30, 30, 0.86)");
+    root.setProperty("--overlay-reload-text", "rgba(255, 255, 255, 0.92)");
+    root.setProperty("--overlay-dev-watermark", "rgba(255, 255, 255, 0.47)");
+  }
+
+  function getMonetPalette() {
+    if (MonetTheme.palette) return MonetTheme.palette;
+    const palette = normalizeMonetPalette(settings.Appearance?.MonetPalette);
+    if (palette) MonetTheme.palette = palette;
+    return palette;
+  }
+
+  function renderMonetPalettePreview(palette) {
+    const container = document.getElementById("monet-palette-preview");
+    if (!container) return;
+    container.innerHTML = "";
+    const items = [
+      { key: "primary", color: palette.primary, label: getText("appearance.theme.monet.color.primary") || "主色" },
+      { key: "background", color: palette.background, label: getText("appearance.theme.monet.color.background") || "背景" },
+      { key: "surface", color: palette.surface, label: getText("appearance.theme.monet.color.surface") || "表面" },
+      { key: "text", color: palette.text, label: getText("appearance.theme.monet.color.text") || "文字" }
+    ];
+    items.forEach(item => {
+      const swatch = document.createElement("div");
+      swatch.className = "monet-color-swatch";
+      swatch.style.background = item.color;
+      swatch.setAttribute("data-label", item.label);
+      container.appendChild(swatch);
+    });
+  }
+
+  function openMonetPreview() {
+    const modal = document.getElementById("monet-preview-modal");
+    const textEl = document.getElementById("monet-preview-text");
+    const previewEl = document.getElementById("monet-palette-preview");
+    if (modal) modal.classList.add("active");
+    if (previewEl) previewEl.innerHTML = "";
+    if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.loading") || "正在从桌面壁纸取色...";
+    MonetTheme.previewPalette = null;
+    if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_monet_colors) {
+      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
+      return;
+    }
+    window.pywebview.api.get_monet_colors().then(res => {
+      const palette = normalizeMonetPalette(res);
+      if (!palette) {
+        if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.empty") || "未能从壁纸获取颜色";
+        return;
+      }
+      MonetTheme.previewPalette = palette;
+      renderMonetPalettePreview(palette);
+      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.desc") || "";
+    }).catch(() => {
+      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
+    });
+  }
+
+  function closeMonetModal() {
+    const modal = document.getElementById("monet-preview-modal");
+    if (modal) modal.classList.remove("active");
+  }
+
+  function confirmMonetTheme() {
+    const palette = MonetTheme.previewPalette;
+    const textEl = document.getElementById("monet-preview-text");
+    if (!palette) {
+      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.empty") || "未能从壁纸获取颜色";
+      return;
+    }
+    if (!settings.Appearance) settings.Appearance = {};
+    settings.Appearance.MonetPalette = palette;
+    settings.Appearance.ThemeId = "monet";
+    MonetTheme.palette = palette;
+    ThemeSystem.applyTheme("monet", settings.Appearance.ThemeMode || "Light");
+    ThemeSystem.renderThemeGallery("theme-gallery", "monet", settings.Appearance.ThemeMode || "Light");
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.save_setting) {
+      window.pywebview.api.save_setting("Appearance", "MonetPalette", palette);
+      window.pywebview.api.save_setting("Appearance", "ThemeId", "monet");
+    }
+    closeMonetModal();
+  }
+
   const ThemeSystem = {
     applyTheme: (themeId, mode) => {
       const id = themeId || "default";
       const m = mode || "Light";
-      const variant = (m === "Auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : (m === "Dark" ? "dark" : "light"));
+      const variant = getThemeVariant(m);
       document.documentElement.setAttribute("data-theme-id", id);
       document.documentElement.setAttribute("data-theme-variant", variant);
       document.documentElement.setAttribute("data-theme", variant);
+      if (id === "monet") {
+        const palette = getMonetPalette();
+        if (palette) {
+          applyMonetPalette(palette, m);
+        } else {
+          clearMonetPalette();
+        }
+      } else {
+        clearMonetPalette();
+      }
     },
     renderThemeGallery: (containerId, themeId, mode) => {
        const container = typeof containerId === "string" ? document.getElementById(containerId) : containerId;
        if (!container) return;
        
        const themes = [
-           { id: "default", name: "默认主题" },
-           { id: "material-you", name: "紫色心情" },
-           { id: "red-sunrise", name: "红日东升" },
-           { id: "emptiness-color", name: "空即是色" },
-           { id: "mung-bean", name: "绿豆冰沙" },
-           { id: "orange-wish", name: "心想事橙" }
+          { id: "default", nameKey: "appearance.theme.default", fallback: "默认主题" },
+          { id: "material-you", nameKey: "appearance.theme.materialYou", fallback: "紫色心情" },
+          { id: "red-sunrise", nameKey: "appearance.theme.redSunrise", fallback: "红日东升" },
+          { id: "emptiness-color", nameKey: "appearance.theme.emptinessColor", fallback: "空即是色" },
+          { id: "mung-bean", nameKey: "appearance.theme.mungBean", fallback: "绿豆冰沙" },
+          { id: "orange-wish", nameKey: "appearance.theme.orangeWish", fallback: "心想事橙" },
+          { id: "monet", nameKey: "appearance.theme.monet", fallback: "莫奈取色", isMonet: true }
        ];
        
        const m = mode || "Light";
-       const variant = (m === "Auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : (m === "Dark" ? "dark" : "light"));
+       const variant = getThemeVariant(m);
        
        container.innerHTML = "";
        themes.forEach(theme => {
@@ -5083,15 +5446,39 @@
            
            const root = document.createElement("div");
            root.className = "theme-preview-root";
-           root.setAttribute("data-theme-id", theme.id);
-           root.setAttribute("data-theme-variant", variant);
-           root.innerHTML = `
-             <div style="width: 100%; height: 100%; background: var(--bg-app); padding: 8px; display: flex; flex-direction: column; gap: 4px;">
-               <div style="height: 8px; width: 40%; background: var(--text-primary); opacity: 0.5; border-radius: 4px;"></div>
-               <div style="height: 20px; width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;"></div>
-               <div style="height: 20px; width: 100%; background: var(--accent-blue); border-radius: 6px; margin-top: auto;"></div>
-             </div>
-           `;
+           if (theme.isMonet) {
+             const palette = getMonetPalette();
+             if (palette) {
+               root.style.background = palette.background;
+               root.innerHTML = `
+                 <div style="width: 100%; height: 100%; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                   <div style="height: 8px; width: 40%; background: ${palette.text}; opacity: 0.6; border-radius: 4px;"></div>
+                   <div style="height: 20px; width: 100%; background: ${palette.surface}; border: 1px solid ${rgba(palette.text, 0.15)}; border-radius: 6px;"></div>
+                   <div style="height: 20px; width: 100%; background: ${palette.primary}; border-radius: 6px; margin-top: auto;"></div>
+                 </div>
+               `;
+             } else {
+               root.setAttribute("data-theme-id", "default");
+               root.setAttribute("data-theme-variant", variant);
+               root.innerHTML = `
+                 <div style="width: 100%; height: 100%; background: var(--bg-app); padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                   <div style="height: 8px; width: 40%; background: var(--text-primary); opacity: 0.5; border-radius: 4px;"></div>
+                   <div style="height: 20px; width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;"></div>
+                   <div style="height: 20px; width: 100%; background: var(--accent-blue); border-radius: 6px; margin-top: auto;"></div>
+                 </div>
+               `;
+             }
+           } else {
+             root.setAttribute("data-theme-id", theme.id);
+             root.setAttribute("data-theme-variant", variant);
+             root.innerHTML = `
+               <div style="width: 100%; height: 100%; background: var(--bg-app); padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                 <div style="height: 8px; width: 40%; background: var(--text-primary); opacity: 0.5; border-radius: 4px;"></div>
+                 <div style="height: 20px; width: 100%; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;"></div>
+                 <div style="height: 20px; width: 100%; background: var(--accent-blue); border-radius: 6px; margin-top: auto;"></div>
+               </div>
+             `;
+           }
            preview.appendChild(root);
            card.appendChild(preview);
            
@@ -5099,11 +5486,17 @@
            meta.className = "theme-meta";
            const nameEl = document.createElement("div");
            nameEl.className = "theme-meta-name";
-           nameEl.textContent = theme.name;
+           nameEl.textContent = getText(theme.nameKey) || theme.fallback || theme.id;
            meta.appendChild(nameEl);
            card.appendChild(meta);
            
-           card.addEventListener("click", () => setThemeId(theme.id));
+           card.addEventListener("click", () => {
+             if (theme.isMonet) {
+               openMonetPreview();
+             } else {
+               setThemeId(theme.id);
+             }
+           });
            container.appendChild(card);
        });
     }
@@ -5308,7 +5701,7 @@
     Toolbar: { ShowClear: true, ShowToolbarText: true },
     Debug: { ShowLog: false, RtlTest: false, RotateTest: false },
     Update: { AutoCheck: true, Source: "github" },
-    Appearance: { ThemeMode: "Light", ThemeId: "default" }
+    Appearance: { ThemeMode: "Light", ThemeId: "default", MonetPalette: null }
   };
 
   if (window.initialSettings && window.initialSettings.General && window.initialSettings.General.Language) {
@@ -5530,6 +5923,7 @@
     document.querySelectorAll(".theme-option").forEach(opt => opt.classList.remove("active"));
     const activeOpt = document.getElementById(`theme-${mode}`);
     if (activeOpt) activeOpt.classList.add("active");
+    MonetTheme.palette = normalizeMonetPalette(settings.Appearance?.MonetPalette);
     const themeId = settings.Appearance && settings.Appearance.ThemeId ? settings.Appearance.ThemeId : "default";
     ThemeSystem.applyTheme(themeId, mode);
     ThemeSystem.renderThemeGallery("theme-gallery", themeId, mode);

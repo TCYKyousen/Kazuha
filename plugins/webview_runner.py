@@ -495,8 +495,22 @@ class Api(QObject):
         sys.exit(0)
 
     @Slot(result="QVariant")
+    def get_monet_colors(self):
+        try:
+            import plugins.monet_utils as monet
+            path = monet.get_wallpaper_path()
+            if not path:
+                return {}
+            colors = monet.extract_colors(path)
+            return colors or {}
+        except Exception as e:
+            print(f"Monet error: {e}")
+            return {}
+
+    @Slot(result="QVariant")
     def get_screen_list(self):
         screens = []
+
         if sys.platform == "win32":
             try:
                 import ctypes

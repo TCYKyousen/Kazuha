@@ -4,14 +4,15 @@ import json
 import ctypes
 import tempfile
 import subprocess
+import base64
 from json import JSONDecodeError
 
 from PySide6.QtWidgets import QApplication, QFileDialog
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWebEngineCore import QWebEngineScript, QWebEngineSettings
 from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtCore import QObject, Slot, QUrl, QFile, QIODevice, Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QObject, Slot, QUrl, QFile, QIODevice, Qt, QTimer, QBuffer, QByteArray
+from PySide6.QtGui import QColor, QImage
 
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWCP_ROUND = 2
@@ -85,6 +86,38 @@ def _apply_chromium_flags():
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(merged)
     else:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(flags)
+
+def _get_wallpaper_path():
+    if sys.platform != "win32":
+        return None
+    try:
+        SPI_GETDESKWALLPAPER = 0x0073
+        path = ctypes.create_unicode_buffer(260)
+        ctypes.windll.user32.SystemParametersInfoW(SPI_GETDESKWALLPAPER, 260, path, 0)
+        p = path.value
+        if p and os.path.exists(p):
+            return p
+    except Exception:
+        return None
+    return None
+
+def _image_path_to_data_url(path):
+    if not path or not os.path.exists(path):
+        return None
+    img = QImage(path)
+    if img.isNull():
+        return None
+    max_side = max(img.width(), img.height())
+    if max_side > 800:
+        img = img.scaled(800, 800, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    img.save(buffer, "PNG")
+    data = bytes(buffer.data())
+    if not data:
+        return None
+    encoded = base64.b64encode(data).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
 
 class Api(QObject):
     def __init__(self, window=None):
@@ -358,6 +391,30 @@ class Api(QObject):
             self._window.show()
             self._window.raise_()
             self._window.activateWindow()
+            if sys.platform == "win32":
+                try:
+                    import ctypes
+                    from ctypes import wintypes
+                    hwnd = self._window.native
+                    if hwnd:
+                        class FLASHWINFO(ctypes.Structure):
+                            _fields_ = [
+                                ("cbSize", wintypes.UINT),
+                                ("hwnd", wintypes.HWND),
+                                ("dwFlags", wintypes.DWORD),
+                                ("uCount", wintypes.UINT),
+                                ("dwTimeout", wintypes.DWORD),
+                            ]
+                        info = FLASHWINFO(
+                            ctypes.sizeof(FLASHWINFO),
+                            wintypes.HWND(hwnd),
+                            3,
+                            3,
+                            0,
+                        )
+                        ctypes.windll.user32.FlashWindowEx(ctypes.byref(info))
+                except Exception:
+                    pass
 
     @Slot(str)
     def open_browser(self, url):
@@ -497,12 +554,13 @@ class Api(QObject):
     @Slot(result="QVariant")
     def get_monet_colors(self):
         try:
-            import plugins.monet_utils as monet
-            path = monet.get_wallpaper_path()
+            path = _get_wallpaper_path()
             if not path:
                 return {}
-            colors = monet.extract_colors(path)
-            return colors or {}
+            image_data = _image_path_to_data_url(path)
+            if not image_data:
+                return {"path": path}
+            return {"path": path, "image": image_data}
         except Exception as e:
             print(f"Monet error: {e}")
             return {}
@@ -558,18 +616,20 @@ class Api(QObject):
         return screens
 
 class MainWindow(QWebEngineView):
-    def __init__(self, title, url, api, width, height, theme_mode="auto"):
+    def __init__(self, title, url, api, width, height, theme_mode="auto", custom_border=False):
         super().__init__()
         self.setWindowTitle(title)
         self.resize(width, height)
         self._center_on_screen()
         self._theme_mode = theme_mode
+        self._custom_border = custom_border
         self._apply_page_background()
         settings = self.page().settings()
         settings.setAttribute(QWebEngineSettings.WebAttribute.Accelerated2dCanvasEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.WebGLEnabled, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
         settings.setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.WebAttribute.ScrollAnimatorEnabled, True)
         self.api = api
         self.api.set_window(self)
         self.channel = QWebChannel()
@@ -609,6 +669,8 @@ class MainWindow(QWebEngineView):
         settings_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         settings_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         self.page().scripts().insert(settings_script)
+        if self._custom_border:
+            self._inject_custom_border()
         self.load(QUrl.fromUserInput(url))
         self.loadFinished.connect(lambda *_: self._schedule_backdrop_apply())
         self._schedule_backdrop_apply()
@@ -619,6 +681,31 @@ class MainWindow(QWebEngineView):
             self.page().setBackgroundColor(QColor(24, 24, 24))
         else:
             self.page().setBackgroundColor(QColor(255, 255, 255))
+
+    def _inject_custom_border(self):
+        css = """
+html, body {
+    height: 100%;
+}
+body {
+    box-sizing: border-box;
+    border: 1px solid var(--divider, rgba(0, 0, 0, 0.12));
+    border-radius: 12px;
+    overflow: hidden;
+}
+"""
+        js = f"""
+(function() {{
+    const style = document.createElement('style');
+    style.textContent = {json.dumps(css)};
+    document.documentElement.appendChild(style);
+}})();
+"""
+        script = QWebEngineScript()
+        script.setSourceCode(js)
+        script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        self.page().scripts().insert(script)
 
     def _center_on_screen(self):
         screen = QApplication.primaryScreen()
@@ -754,6 +841,9 @@ def main():
         title = sys.argv[2]
         width = int(sys.argv[3])
         height = int(sys.argv[4])
+        custom_border = False
+        if len(sys.argv) >= 6:
+            custom_border = str(sys.argv[5]).strip().lower() in ["1", "true", "yes", "on"]
         api = Api()
         settings_path = os.environ.get("SETTINGS_PATH")
         if not settings_path:
@@ -779,7 +869,9 @@ def main():
         except Exception:
             api.version = {}
         theme_mode = api.settings.get("Appearance", {}).get("ThemeMode", "Auto")
-        window = MainWindow(title, url, api, width, height, theme_mode)
+        window = MainWindow(title, url, api, width, height, theme_mode, custom_border)
+        if title == "Settings":
+            window.setMinimumWidth(1099)
         window.show()
     else:
         return

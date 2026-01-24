@@ -93,6 +93,108 @@ def _get_theme_id():
         return "default"
     return "default"
 
+def _get_monet_palette():
+    try:
+        if os.path.exists(SETTINGS_PATH):
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            palette = (data.get("Appearance", {}) or {}).get("MonetPalette")
+            if isinstance(palette, dict):
+                return palette
+    except Exception:
+        return None
+    return None
+
+def _hex_to_rgb(hex_value):
+    if not hex_value:
+        return None
+    v = str(hex_value).strip()
+    if v.startswith("#"):
+        v = v[1:]
+    if len(v) == 3:
+        v = "".join([c * 2 for c in v])
+    if len(v) != 6:
+        return None
+    try:
+        r = int(v[0:2], 16)
+        g = int(v[2:4], 16)
+        b = int(v[4:6], 16)
+        return (r, g, b)
+    except Exception:
+        return None
+
+def _rgb_to_hex(r, g, b):
+    return f"#{max(0, min(255, int(r))):02x}{max(0, min(255, int(g))):02x}{max(0, min(255, int(b))):02x}"
+
+def _mix_color(base, target, ratio):
+    base_rgb = _hex_to_rgb(base)
+    target_rgb = _hex_to_rgb(target)
+    if not base_rgb or not target_rgb:
+        return base
+    r = round(base_rgb[0] + (target_rgb[0] - base_rgb[0]) * ratio)
+    g = round(base_rgb[1] + (target_rgb[1] - base_rgb[1]) * ratio)
+    b = round(base_rgb[2] + (target_rgb[2] - base_rgb[2]) * ratio)
+    return _rgb_to_hex(r, g, b)
+
+def _rgba(hex_value, alpha):
+    rgb = _hex_to_rgb(hex_value)
+    if not rgb:
+        return ""
+    a = max(0, min(1, float(alpha)))
+    return f"rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {a})"
+
+def _build_monet_palette(palette, is_light):
+    if not isinstance(palette, dict):
+        return None
+    primary = palette.get("primary") or palette.get("accent")
+    background = palette.get("background")
+    surface = palette.get("surface")
+    text = palette.get("text")
+    if not primary or not background or not surface or not text:
+        return None
+    is_dark = not is_light
+    bg_app = _mix_color(primary, "#000000", 0.78) if is_dark else background
+    bg_surface = _mix_color(primary, "#000000", 0.7) if is_dark else surface
+    text_primary = "#F5F5F5" if is_dark else text
+    divider = "rgba(255, 255, 255, 0.12)" if is_dark else "rgba(0, 0, 0, 0.08)"
+    card_bg = _rgba(primary, 0.18 if is_dark else 0.1)
+    card_border = _rgba(primary, 0.28 if is_dark else 0.2)
+    item_hover = _rgba(primary, 0.22 if is_dark else 0.14)
+    shadow_color = "rgba(0, 0, 0, 0.5)" if is_dark else _rgba(primary, 0.18)
+    btn_active = _rgba(primary, 0.3 if is_dark else 0.22)
+    page_hint = "rgba(255, 255, 255, 0.6)" if is_dark else "rgba(0, 0, 0, 0.5)"
+    popup_border = "rgba(255, 255, 255, 0.18)" if is_dark else "rgba(0, 0, 0, 0.12)"
+    status_bg = "rgba(0, 0, 0, 0.3)" if is_dark else "rgba(0, 0, 0, 0.25)"
+    return {
+        "accent": primary,
+        "card_bg": card_bg,
+        "card_border": card_border,
+        "item_hover": item_hover,
+        "status_fg": "#FFFFFF",
+        "status_bg": status_bg,
+        "status_sep": "rgba(255, 255, 255, 0.3)",
+        "toolbar_bg": bg_surface,
+        "toolbar_border": divider,
+        "toolbar_line": divider,
+        "toolbar_fg": text_primary,
+        "toolbar_shadow": shadow_color,
+        "btn_hover_bg": item_hover,
+        "btn_active_bg": btn_active,
+        "pageflip_bg": bg_surface,
+        "pageflip_border": divider,
+        "pageflip_fg": text_primary,
+        "pageflip_hint": page_hint,
+        "pageflip_hover": item_hover,
+        "pageflip_shadow": shadow_color,
+        "popup_bg": bg_surface,
+        "popup_border": popup_border,
+        "popup_fg": text_primary,
+        "mask_overlay_bg": "rgba(0, 0, 0, 0.48)" if is_dark else "rgba(0, 0, 0, 0.43)",
+        "mask_card_bg": "rgba(30, 30, 30, 0.86)",
+        "mask_text_fg": "rgba(255, 255, 255, 0.92)",
+        "dev_watermark": "rgba(255, 255, 255, 0.47)"
+    }
+
 
 def _parse_color(value, fallback=None):
     if isinstance(value, QColor):
@@ -124,6 +226,13 @@ def _get_palette(is_light=False):
     theme_id = _get_theme_id()
     variant = "light" if is_light else "dark"
     
+    if str(theme_id).lower() == "monet":
+        monet_palette = _get_monet_palette()
+        monet_theme = _build_monet_palette(monet_palette, is_light)
+        if monet_theme:
+            return monet_theme
+        theme_id = "default"
+
     if theme_id not in THEMES:
         theme_id = "default"
         

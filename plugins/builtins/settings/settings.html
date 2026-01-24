@@ -2885,33 +2885,126 @@
 
     /* Monet Preview Modal */
     #monet-preview-modal .modal-dialog {
-      max-width: 400px;
+      width: 560px;
+      max-width: 94vw;
+      min-height: 520px;
     }
 
-    .monet-palette-preview {
+    .monet-preview-layout {
       display: flex;
+      gap: 16px;
+      align-items: stretch;
+      margin-top: 14px;
+    }
+
+    .monet-preview-actions {
+      display: flex;
+      justify-content: flex-end;
       gap: 8px;
-      margin: 20px 0;
+      margin-top: 6px;
+    }
+
+    .monet-preview-actions .modal-btn {
+      height: 32px;
+      padding: 0 14px;
+    }
+
+    .monet-custom-input {
+      display: none;
+    }
+
+    .monet-preview-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .monet-preview-right {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .monet-wallpaper-frame {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
       justify-content: center;
     }
 
-    .monet-color-swatch {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    [data-theme="dark"] .monet-wallpaper-frame {
+      background: transparent;
+      border-color: transparent;
+    }
+
+    .monet-wallpaper-screen {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.1);
+      border: 4px solid #000000;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
       position: relative;
     }
 
-    .monet-color-swatch::after {
-      content: attr(data-label);
-      position: absolute;
-      bottom: -24px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 11px;
+    [data-theme="dark"] .monet-wallpaper-screen {
+      background: rgba(0, 0, 0, 0.45);
+      border-color: #000000;
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    .monet-wallpaper-screen img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .monet-color-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 0;
+      max-height: 280px;
+      overflow: auto;
+      width: 100%;
+    }
+
+    .monet-color-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--divider);
+      width: 100%;
+      min-height: 44px;
+    }
+
+    .monet-color-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      flex: 0 0 18px;
+    }
+
+    .monet-color-text {
+      font-size: 13px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .monet-color-text span {
       color: var(--text-secondary);
-      white-space: nowrap;
     }
 
     .settings-item.disabled {
@@ -3918,12 +4011,37 @@
       </div>
     </div>
   </div>
+  <div id="monet-source-modal" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-title" data-i18n="appearance.theme.monet.source.title">选择取色来源</div>
+      <div class="modal-island">
+        <div class="modal-text" data-i18n="appearance.theme.monet.source.desc">请选择从桌面壁纸或本地图片取色</div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-secondary" onclick="closeMonetSourceModal()" data-i18n="nav.back">返回</button>
+        <button class="modal-btn modal-btn-confirm" onclick="pickMonetFromWallpaper()" data-i18n="appearance.theme.monet.wallpaper">从桌面壁纸取色</button>
+        <button class="modal-btn modal-btn-confirm" onclick="pickMonetFromLocal()" data-i18n="appearance.theme.monet.custom">从本地图片取色</button>
+      </div>
+    </div>
+  </div>
   <div id="monet-preview-modal" class="modal-overlay">
     <div class="modal-dialog">
-      <div class="modal-title" data-i18n="appearance.theme.monet.preview.title">莫奈配色预览</div>
+      <div class="modal-title" data-i18n="appearance.theme.monet.preview.title">动态取色预览</div>
       <div class="modal-island">
-        <div id="monet-preview-text" class="modal-text" data-i18n="appearance.theme.monet.preview.desc">从桌面壁纸提取到以下配色，确认后将应用到主题</div>
-        <div class="monet-palette-preview" id="monet-palette-preview"></div>
+        <div id="monet-preview-text" class="modal-text" data-i18n="appearance.theme.monet.preview.desc">提取到以下配色，确认后将应用到主题</div>
+        <input id="monet-custom-file" class="monet-custom-input" type="file" accept="image/*" />
+        <div class="monet-preview-layout">
+          <div class="monet-preview-left">
+            <div class="monet-wallpaper-frame">
+              <div class="monet-wallpaper-screen">
+                <img id="monet-wallpaper-img" alt="wallpaper" />
+              </div>
+            </div>
+          </div>
+          <div class="monet-preview-right">
+            <div class="monet-color-list" id="monet-palette-preview"></div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="modal-btn modal-btn-secondary" onclick="closeMonetModal()" data-i18n="nav.back">返回</button>
@@ -4066,13 +4184,19 @@
       "appearance.theme.mungBean.desc": "清新薄荷与凉感绿意",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘微甜与活力暖色",
-      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet": "动态取色",
       "appearance.theme.monet.desc": "从桌面壁纸提取颜色",
-      "appearance.theme.monet.preview.title": "莫奈配色预览",
-      "appearance.theme.monet.preview.desc": "从桌面壁纸提取到以下配色，确认后将应用到主题",
+      "appearance.theme.monet.source.title": "选择取色来源",
+      "appearance.theme.monet.source.desc": "请选择从桌面壁纸或本地图片取色",
+      "appearance.theme.monet.preview.title": "动态取色预览",
+      "appearance.theme.monet.preview.desc": "提取到以下配色，确认后将应用到主题",
       "appearance.theme.monet.preview.loading": "正在从桌面壁纸取色...",
       "appearance.theme.monet.preview.empty": "未能从壁纸获取颜色",
+      "appearance.theme.monet.preview.loading.custom": "正在从图片取色...",
+      "appearance.theme.monet.preview.empty.custom": "未能从图片获取颜色",
       "appearance.theme.monet.preview.error": "取色失败",
+      "appearance.theme.monet.wallpaper": "从桌面壁纸取色",
+      "appearance.theme.monet.custom": "从本地图片取色",
       "appearance.theme.monet.apply": "应用",
       "appearance.theme.monet.color.primary": "主色",
       "appearance.theme.monet.color.background": "背景",
@@ -4252,13 +4376,19 @@
       "appearance.theme.mungBean.desc": "清新薄荷與涼感綠意",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘微甜與活力暖色",
-      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet": "动态取色",
       "appearance.theme.monet.desc": "從桌面桌布提取顏色",
-      "appearance.theme.monet.preview.title": "莫奈配色預覽",
-      "appearance.theme.monet.preview.desc": "從桌面桌布提取到以下配色，確認後將套用到主題",
+      "appearance.theme.monet.source.title": "選擇取色來源",
+      "appearance.theme.monet.source.desc": "請選擇從桌面桌布或本地圖片取色",
+      "appearance.theme.monet.preview.title": "动态取色預覽",
+      "appearance.theme.monet.preview.desc": "提取到以下配色，確認後將套用到主題",
       "appearance.theme.monet.preview.loading": "正在從桌面桌布取色...",
       "appearance.theme.monet.preview.empty": "未能從桌布取得顏色",
+      "appearance.theme.monet.preview.loading.custom": "正在從圖片取色...",
+      "appearance.theme.monet.preview.empty.custom": "未能從圖片取得顏色",
       "appearance.theme.monet.preview.error": "取色失敗",
+      "appearance.theme.monet.wallpaper": "從桌面桌布取色",
+      "appearance.theme.monet.custom": "從本地圖片取色",
       "appearance.theme.monet.apply": "套用",
       "appearance.theme.monet.color.primary": "主色",
       "appearance.theme.monet.color.background": "背景",
@@ -4433,13 +4563,19 @@
       "appearance.theme.mungBean.desc": "ミントの清涼感と若草色",
       "appearance.theme.orangeWish": "心想事橙",
       "appearance.theme.orangeWish.desc": "柑橘の甘さと温かい色味",
-      "appearance.theme.monet": "莫奈取色",
+      "appearance.theme.monet": "动态取色",
       "appearance.theme.monet.desc": "デスクトップの壁紙から色を抽出",
-      "appearance.theme.monet.preview.title": "モネ配色プレビュー",
-      "appearance.theme.monet.preview.desc": "壁紙から抽出した配色を確認して適用します",
+      "appearance.theme.monet.source.title": "取色元を選択",
+      "appearance.theme.monet.source.desc": "壁紙またはローカル画像から配色を取得します",
+      "appearance.theme.monet.preview.title": "动态取色プレビュー",
+      "appearance.theme.monet.preview.desc": "抽出した配色を確認して適用します",
       "appearance.theme.monet.preview.loading": "壁紙から配色を取得中...",
       "appearance.theme.monet.preview.empty": "壁紙から色を取得できませんでした",
+      "appearance.theme.monet.preview.loading.custom": "画像から配色を取得中...",
+      "appearance.theme.monet.preview.empty.custom": "画像から色を取得できませんでした",
       "appearance.theme.monet.preview.error": "色の取得に失敗しました",
+      "appearance.theme.monet.wallpaper": "壁紙から配色を取得",
+      "appearance.theme.monet.custom": "ローカル画像から取色",
       "appearance.theme.monet.apply": "適用",
       "appearance.theme.monet.color.primary": "メイン",
       "appearance.theme.monet.color.background": "背景",
@@ -4619,13 +4755,19 @@
       "appearance.theme.mungBean.desc": "Minty freshness and mellow greens",
       "appearance.theme.orangeWish": "Orange Wish",
       "appearance.theme.orangeWish.desc": "Sweet citrus with warm energy",
-      "appearance.theme.monet": "Monet palette",
+      "appearance.theme.monet": "Dynamic palette",
       "appearance.theme.monet.desc": "Extract colors from desktop wallpaper",
-      "appearance.theme.monet.preview.title": "Monet palette preview",
+      "appearance.theme.monet.source.title": "Choose color source",
+      "appearance.theme.monet.source.desc": "Pick colors from wallpaper or a local image",
+      "appearance.theme.monet.preview.title": "Dynamic palette preview",
       "appearance.theme.monet.preview.desc": "Preview the extracted palette and apply it to the theme",
       "appearance.theme.monet.preview.loading": "Extracting colors from wallpaper...",
       "appearance.theme.monet.preview.empty": "No colors extracted from wallpaper",
+      "appearance.theme.monet.preview.loading.custom": "Extracting colors from image...",
+      "appearance.theme.monet.preview.empty.custom": "No colors extracted from image",
       "appearance.theme.monet.preview.error": "Failed to extract colors",
+      "appearance.theme.monet.wallpaper": "Pick Wallpaper Colors",
+      "appearance.theme.monet.custom": "Pick Local Image Colors",
       "appearance.theme.monet.apply": "Apply",
       "appearance.theme.monet.color.primary": "Primary",
       "appearance.theme.monet.color.background": "Background",
@@ -5224,6 +5366,246 @@
     return `#${toHex(clamp(r, 0, 255))}${toHex(clamp(g, 0, 255))}${toHex(clamp(b, 0, 255))}`;
   }
 
+  function rgbToHsl(r, g, b) {
+    let rVal = r / 255;
+    let gVal = g / 255;
+    let bVal = b / 255;
+    const max = Math.max(rVal, gVal, bVal);
+    const min = Math.min(rVal, gVal, bVal);
+    let h = 0;
+    let s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case rVal:
+          h = (gVal - bVal) / d + (gVal < bVal ? 6 : 0);
+          break;
+        case gVal:
+          h = (bVal - rVal) / d + 2;
+          break;
+        default:
+          h = (rVal - gVal) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+    return { h, s, l };
+  }
+
+  function formatColorName(label, hex) {
+    const text = label || "";
+    const code = hex ? hex.toUpperCase() : "";
+    return code ? `${text}色 · ${code}` : `${text}色`;
+  }
+
+  function colorDistance(a, b) {
+    const ar = a.r - b.r;
+    const ag = a.g - b.g;
+    const ab = a.b - b.b;
+    return Math.sqrt(ar * ar + ag * ag + ab * ab);
+  }
+
+  function extractDynamicColors(ctx, width, height) {
+    const cols = 4;
+    const rows = 3;
+    const colors = [];
+    const data = ctx.getImageData(0, 0, width, height).data;
+    const cellW = Math.floor(width / cols);
+    const cellH = Math.floor(height / rows);
+    for (let ry = 0; ry < rows; ry += 1) {
+      for (let rx = 0; rx < cols; rx += 1) {
+        const startX = rx * cellW;
+        const startY = ry * cellH;
+        let rSum = 0;
+        let gSum = 0;
+        let bSum = 0;
+        let count = 0;
+        const step = 3;
+        for (let y = startY; y < startY + cellH; y += step) {
+          for (let x = startX; x < startX + cellW; x += step) {
+            const idx = (y * width + x) * 4;
+            const a = data[idx + 3];
+            if (a < 10) continue;
+            rSum += data[idx];
+            gSum += data[idx + 1];
+            bSum += data[idx + 2];
+            count += 1;
+          }
+        }
+        if (!count) continue;
+        const r = Math.round(rSum / count);
+        const g = Math.round(gSum / count);
+        const b = Math.round(bSum / count);
+        const rgb = { r, g, b };
+        if (!colors.some(existing => colorDistance(existing, rgb) < 32)) {
+          colors.push(rgb);
+        }
+      }
+    }
+    return colors;
+  }
+
+  function pickPrimaryColor(colors) {
+    if (!colors.length) return null;
+    let best = colors[0];
+    let bestScore = -1;
+    colors.forEach(c => {
+      const hsl = rgbToHsl(c.r, c.g, c.b);
+      const score = hsl.s * 1.2 + (0.7 - Math.abs(hsl.l - 0.5));
+      if (score > bestScore) {
+        best = c;
+        bestScore = score;
+      }
+    });
+    return best;
+  }
+
+  function hslToRgb(h, s, l) {
+    let rVal;
+    let gVal;
+    let bVal;
+    if (s === 0) {
+      rVal = gVal = bVal = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        let tVal = t;
+        if (tVal < 0) tVal += 1;
+        if (tVal > 1) tVal -= 1;
+        if (tVal < 1 / 6) return p + (q - p) * 6 * tVal;
+        if (tVal < 1 / 2) return q;
+        if (tVal < 2 / 3) return p + (q - p) * (2 / 3 - tVal) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      rVal = hue2rgb(p, q, h + 1 / 3);
+      gVal = hue2rgb(p, q, h);
+      bVal = hue2rgb(p, q, h - 1 / 3);
+    }
+    return { r: Math.round(rVal * 255), g: Math.round(gVal * 255), b: Math.round(bVal * 255) };
+  }
+
+  function hexToHsl(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return null;
+    return rgbToHsl(rgb.r, rgb.g, rgb.b);
+  }
+
+  function setHexLightness(hex, lightness) {
+    const hsl = hexToHsl(hex);
+    if (!hsl) return hex;
+    const l = clamp(lightness, 0, 1);
+    const rgb = hslToRgb(hsl.h, hsl.s, l);
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  }
+
+  function getHexLightness(hex) {
+    const hsl = hexToHsl(hex);
+    return hsl ? hsl.l : 1;
+  }
+
+  function getRelativeLuminance(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return 1;
+    const convert = v => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    const r = convert(rgb.r);
+    const g = convert(rgb.g);
+    const b = convert(rgb.b);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  function getContrastRatio(a, b) {
+    const l1 = getRelativeLuminance(a);
+    const l2 = getRelativeLuminance(b);
+    const bright = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (bright + 0.05) / (dark + 0.05);
+  }
+
+  function resolveTextColor(preferred, background, isDark) {
+    const bgHsl = hexToHsl(background);
+    const weighted = bgHsl ? (bgHsl.l * 0.72 + bgHsl.s * 0.28) : (isDark ? 0.2 : 0.8);
+    const targetLightness = weighted > 0.55 ? 0.12 : 0.92;
+    const base = preferred || (targetLightness < 0.5 ? "#1A1A1A" : "#F8F8F8");
+    const baseHsl = hexToHsl(base);
+    let candidate = base;
+    if (baseHsl) {
+      const s = clamp(baseHsl.s + (bgHsl ? bgHsl.s * 0.12 : 0), 0, 1);
+      const rgb = hslToRgb(baseHsl.h, s, targetLightness);
+      candidate = rgbToHex(rgb.r, rgb.g, rgb.b);
+    } else {
+      candidate = targetLightness < 0.5 ? "#1A1A1A" : "#F8F8F8";
+    }
+    if (getContrastRatio(candidate, background) < 4.5) {
+      const fallback = targetLightness < 0.5 ? "#101010" : "#FFFFFF";
+      if (getContrastRatio(fallback, background) > getContrastRatio(candidate, background)) {
+        candidate = fallback;
+      }
+    }
+    return candidate;
+  }
+
+  function adjustMonetPrimary(hex) {
+    const hsl = hexToHsl(hex);
+    if (!hsl) return hex;
+    let l = hsl.l;
+    if (l < 0.157) l = 0.157;
+    if (l > 0.784) l = 0.784;
+    const rgb = hslToRgb(hsl.h, hsl.s, l);
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  }
+
+  function extractMonetPaletteFromImage(dataUrl) {
+    return new Promise(resolve => {
+      if (!dataUrl) {
+        resolve(null);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 120;
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const colors = extractDynamicColors(ctx, canvas.width, canvas.height);
+        if (!colors.length) {
+          resolve(null);
+          return;
+        }
+        const primaryRgb = pickPrimaryColor(colors) || colors[0];
+        const primary = adjustMonetPrimary(rgbToHex(primaryRgb.r, primaryRgb.g, primaryRgb.b));
+        let background = setHexLightness(primary, 0.95);
+        if (getHexLightness(background) < 0.94) {
+          background = "#F9F9F9";
+        }
+        const colorList = colors.slice(0, 8).map(c => rgbToHex(c.r, c.g, c.b));
+        resolve({
+          palette: {
+            primary,
+            background,
+            surface: "#FFFFFF",
+            text: "#000000"
+          },
+          colors: colorList
+        });
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
   function mixColor(base, target, ratio) {
     const b = hexToRgb(base);
     const t = hexToRgb(target);
@@ -5261,8 +5643,8 @@
     const accent = palette.primary;
     const bgApp = isDark ? mixColor(accent, "#000000", 0.78) : palette.background;
     const bgSurface = isDark ? mixColor(accent, "#000000", 0.7) : palette.surface;
-    const textPrimary = isDark ? "#F5F5F5" : palette.text;
-    const textSecondary = isDark ? "rgba(255, 255, 255, 0.6)" : rgba(textPrimary, 0.7);
+    const textPrimary = resolveTextColor(palette.text, bgSurface, isDark);
+    const textSecondary = rgba(textPrimary, isDark ? 0.7 : 0.68);
     const divider = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)";
     const border = divider;
     const cardBg = isDark ? rgba(accent, 0.18) : rgba(accent, 0.1);
@@ -5330,10 +5712,12 @@
     return palette;
   }
 
-  function renderMonetPalettePreview(palette) {
+  function renderMonetPalettePreview(palette, colors) {
     const container = document.getElementById("monet-palette-preview");
     if (!container) return;
     container.innerHTML = "";
+    const isDark = getThemeVariant(settings.Appearance?.ThemeMode || "Light") === "dark";
+    const list = [];
     const items = [
       { key: "primary", color: palette.primary, label: getText("appearance.theme.monet.color.primary") || "主色" },
       { key: "background", color: palette.background, label: getText("appearance.theme.monet.color.background") || "背景" },
@@ -5341,36 +5725,128 @@
       { key: "text", color: palette.text, label: getText("appearance.theme.monet.color.text") || "文字" }
     ];
     items.forEach(item => {
-      const swatch = document.createElement("div");
-      swatch.className = "monet-color-swatch";
-      swatch.style.background = item.color;
-      swatch.setAttribute("data-label", item.label);
-      container.appendChild(swatch);
+      const displayColor = item.key === "text" && isDark ? "#F5F5F5" : item.color;
+      list.push({ label: item.label, color: displayColor, raw: item.color });
+    });
+    if (Array.isArray(colors)) {
+      colors.forEach((color, index) => {
+        const label = `${getText("appearance.theme.monet.color.sample") || "取色"}${index + 1}`;
+        list.push({ label, color, raw: color });
+      });
+    }
+    list.forEach(item => {
+      const row = document.createElement("div");
+      row.className = "monet-color-item";
+      const dot = document.createElement("div");
+      dot.className = "monet-color-dot";
+      dot.style.background = item.color;
+      const text = document.createElement("div");
+      text.className = "monet-color-text";
+      text.innerHTML = `${formatColorName(item.label, item.raw)}`;
+      row.appendChild(dot);
+      row.appendChild(text);
+      container.appendChild(row);
     });
   }
 
-  function openMonetPreview() {
+  function resetMonetPreview(text) {
     const modal = document.getElementById("monet-preview-modal");
     const textEl = document.getElementById("monet-preview-text");
     const previewEl = document.getElementById("monet-palette-preview");
+    const wallpaperEl = document.getElementById("monet-wallpaper-img");
     if (modal) modal.classList.add("active");
     if (previewEl) previewEl.innerHTML = "";
-    if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.loading") || "正在从桌面壁纸取色...";
+    if (textEl) textEl.textContent = text || "";
     MonetTheme.previewPalette = null;
+    if (wallpaperEl) wallpaperEl.removeAttribute("src");
+  }
+
+  function applyMonetImagePreview(imageData, emptyKey, descKey) {
+    const textEl = document.getElementById("monet-preview-text");
+    const wallpaperEl = document.getElementById("monet-wallpaper-img");
+    if (wallpaperEl && imageData) {
+      wallpaperEl.src = imageData;
+    }
+    if (!imageData) {
+      if (textEl) textEl.textContent = getText(emptyKey) || "未能获取颜色";
+      return;
+    }
+    extractMonetPaletteFromImage(imageData).then(result => {
+      const normalized = normalizeMonetPalette(result ? result.palette : null);
+      if (!normalized) {
+        if (textEl) textEl.textContent = getText(emptyKey) || "未能获取颜色";
+        return;
+      }
+      MonetTheme.previewPalette = normalized;
+      renderMonetPalettePreview(normalized, result ? result.colors : null);
+      if (textEl) textEl.textContent = getText(descKey) || "";
+    }).catch(() => {
+      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
+    });
+  }
+
+  function ensureMonetFileListener() {
+    const input = document.getElementById("monet-custom-file");
+    if (!input || input.dataset.bound === "1") return;
+    input.dataset.bound = "1";
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      resetMonetPreview(getText("appearance.theme.monet.preview.loading.custom") || "正在从图片取色...");
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result ? String(reader.result) : "";
+        applyMonetImagePreview(dataUrl, "appearance.theme.monet.preview.empty.custom", "appearance.theme.monet.preview.desc");
+      };
+      reader.onerror = () => {
+        const textEl = document.getElementById("monet-preview-text");
+        if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function chooseMonetImage() {
+    ensureMonetFileListener();
+    const input = document.getElementById("monet-custom-file");
+    if (!input) return;
+    input.value = "";
+    input.click();
+  }
+
+  function openMonetSourceModal() {
+    const modal = document.getElementById("monet-source-modal");
+    if (modal) modal.classList.add("active");
+  }
+
+  function closeMonetSourceModal() {
+    const modal = document.getElementById("monet-source-modal");
+    if (modal) modal.classList.remove("active");
+  }
+
+  function pickMonetFromWallpaper() {
+    closeMonetSourceModal();
+    openMonetPreview();
+  }
+
+  function pickMonetFromLocal() {
+    closeMonetSourceModal();
+    chooseMonetImage();
+  }
+
+  function openMonetPreview() {
+    ensureMonetFileListener();
+    resetMonetPreview(getText("appearance.theme.monet.preview.loading") || "正在从桌面壁纸取色...");
     if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_monet_colors) {
+      const textEl = document.getElementById("monet-preview-text");
       if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
       return;
     }
     window.pywebview.api.get_monet_colors().then(res => {
-      const palette = normalizeMonetPalette(res);
-      if (!palette) {
-        if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.empty") || "未能从壁纸获取颜色";
-        return;
-      }
-      MonetTheme.previewPalette = palette;
-      renderMonetPalettePreview(palette);
-      if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.desc") || "";
+      const imageData = res && res.image ? res.image : "";
+      applyMonetImagePreview(imageData, "appearance.theme.monet.preview.empty", "appearance.theme.monet.preview.desc");
     }).catch(() => {
+      const textEl = document.getElementById("monet-preview-text");
       if (textEl) textEl.textContent = getText("appearance.theme.monet.preview.error") || "取色失败";
     });
   }
@@ -5430,7 +5906,7 @@
           { id: "emptiness-color", nameKey: "appearance.theme.emptinessColor", fallback: "空即是色" },
           { id: "mung-bean", nameKey: "appearance.theme.mungBean", fallback: "绿豆冰沙" },
           { id: "orange-wish", nameKey: "appearance.theme.orangeWish", fallback: "心想事橙" },
-          { id: "monet", nameKey: "appearance.theme.monet", fallback: "莫奈取色", isMonet: true }
+          { id: "monet", nameKey: "appearance.theme.monet", fallback: "动态取色", isMonet: true }
        ];
        
        const m = mode || "Light";
@@ -5490,13 +5966,13 @@
            meta.appendChild(nameEl);
            card.appendChild(meta);
            
-           card.addEventListener("click", () => {
-             if (theme.isMonet) {
-               openMonetPreview();
-             } else {
-               setThemeId(theme.id);
-             }
-           });
+          card.addEventListener("click", () => {
+            if (theme.isMonet) {
+              openMonetSourceModal();
+            } else {
+              setThemeId(theme.id);
+            }
+          });
            container.appendChild(card);
        });
     }

@@ -615,6 +615,7 @@ class PPTAssistantApp:
         self._timer_manager = TimerManager()
         self._last_timer_notify_at = 0.0
         self._reloading_overlay = False
+        self._slideshow_running = False
         self._reload_timer = QTimer()
         self._reload_timer.setSingleShot(True)
         self._reload_timer.setInterval(150)
@@ -796,6 +797,7 @@ class PPTAssistantApp:
 
         self.monitor.slide_changed.connect(self.overlay.update_page_info)
         self.monitor.window_geometry_changed.connect(self.overlay.update_geometry)
+        self.monitor.overlay_visibility_changed.connect(self._on_overlay_visibility_changed)
 
     @Slot()
     def _on_timer_finished(self):
@@ -808,6 +810,7 @@ class PPTAssistantApp:
     
     @Slot()
     def on_slideshow_start(self):
+        self._slideshow_running = True
         # Cleanup slide thumbnails from previous session
         temp_dir = os.path.join(tempfile.gettempdir(), "kazuha_ppt_thumbs")
         if os.path.exists(temp_dir):
@@ -823,7 +826,19 @@ class PPTAssistantApp:
     
     @Slot()
     def on_slideshow_end(self):
+        self._slideshow_running = False
         self.overlay.hide()
+
+    @Slot(bool)
+    def _on_overlay_visibility_changed(self, visible: bool):
+        if not self._slideshow_running or not cfg.autoShowOverlay.value:
+            self.overlay.hide()
+            return
+        if visible:
+            self.overlay.show()
+            self.overlay.raise_()
+        else:
+            self.overlay.hide()
 
     def _check_settings_changed(self):
         if not os.path.exists(SETTINGS_PATH):

@@ -17,51 +17,43 @@ def run():
     cmd = [
         python_exe,
         "-m",
-        "PyInstaller",
-        "--noconfirm",
-        "--clean",
-        "--exclude-module",
-        "PyQt5",
-        "--exclude-module",
-        "setuptools",
-        "--exclude-module",
-        "pkg_resources",
-        "--hidden-import",
-        "PySide6.QtXml",
+        "nuitka",
         "--onefile",
-        "--windowed",
-        "--name",
-        "Kazuha",
-        "--add-data",
-        "version.json;.",
-        "--add-data",
-        "config;config",
-        "--add-data",
-        "plugins;plugins",
-        "--add-data",
-        "icons;icons",
-        "--add-data",
-        "ppt_assistant;ppt_assistant",
-        "--add-data",
-        "fonts;fonts",
+        "--windows-console-mode=disable",
+        "--output-dir=dist",
+        "--output-filename=Kazuha",
+        "--enable-plugin=pyside6",
+        "--include-module=PySide6.QtXml",
+        "--nofollow-import-to=PyQt5,setuptools,pkg_resources",
+        "--include-data-file=version.json=version.json",
+        "--include-data-dir=config=config",
+        "--include-data-dir=plugins=plugins",
+        "--include-data-dir=icons=icons",
+        "--include-data-dir=ppt_assistant=ppt_assistant",
+        "--include-data-dir=fonts=fonts",
         "main.py",
     ]
 
     if os.path.exists(logo_ico):
-        cmd.insert(-1, "--icon")
-        cmd.insert(-1, logo_ico)
+        cmd.insert(-1, f"--windows-icon-from-ico={logo_ico}")
 
     if os.path.isdir(dist_dir):
         shutil.rmtree(dist_dir, ignore_errors=True)
     if os.path.isdir(build_dir):
         shutil.rmtree(build_dir, ignore_errors=True)
-    spec_path = os.path.join(root_dir, "Kazuha.spec")
-    if os.path.exists(spec_path):
-        os.remove(spec_path)
+    for extra in [
+        "main.build",
+        "main.dist",
+        "main.onefile-build",
+        "Kazuha.build",
+        "Kazuha.dist",
+        "Kazuha.onefile-build",
+    ]:
+        extra_path = os.path.join(root_dir, extra)
+        if os.path.isdir(extra_path):
+            shutil.rmtree(extra_path, ignore_errors=True)
 
-    env = os.environ.copy()
-    env["PYINSTALLER_HIDE_PKGRES"] = "1"
-    subprocess.check_call(cmd, cwd=root_dir, env=env)
+    subprocess.check_call(cmd, cwd=root_dir)
 
     exe_name = "Kazuha.exe"
     src_exe = os.path.join(dist_dir, exe_name)
@@ -76,8 +68,17 @@ def run():
         shutil.rmtree(dist_dir, ignore_errors=True)
     if os.path.isdir(build_dir):
         shutil.rmtree(build_dir, ignore_errors=True)
-    if os.path.exists(spec_path):
-        os.remove(spec_path)
+    for extra in [
+        "main.build",
+        "main.dist",
+        "main.onefile-build",
+        "Kazuha.build",
+        "Kazuha.dist",
+        "Kazuha.onefile-build",
+    ]:
+        extra_path = os.path.join(root_dir, extra)
+        if os.path.isdir(extra_path):
+            shutil.rmtree(extra_path, ignore_errors=True)
 
 
 if __name__ == "__main__":

@@ -9,10 +9,12 @@ try:
     import win32gui
     import win32api
     import win32con
+    import win32process
 except ImportError:
     win32gui = None
     win32api = None
     win32con = None
+    win32process = None
 try:
     import pywintypes
 except ImportError:
@@ -27,6 +29,7 @@ class PPTWorker(QObject):
     slideshow_ended = Signal()
     slide_changed = Signal(int, int) # current, total
     window_geometry_changed = Signal(object, object) # QRect, QScreen
+    overlay_visibility_changed = Signal(bool)
     video_state_changed = Signal(float, float, float) # ratio, pos, length
     thumbnail_generated = Signal(int, str) # index, path
 
@@ -40,6 +43,7 @@ class PPTWorker(QObject):
         self._last_win_rect = (0, 0, 0, 0)
         self._active_kind = None
         self._last_screen = None
+        self._overlay_visible = None
         self._timer = None
         self._com_initialized = False
 
@@ -77,6 +81,7 @@ class PPTWorker(QObject):
                 self.ppt_app = win32com.client.GetActiveObject("PowerPoint.Application")
             except Exception:
                 self.ppt_app = None
+                self._handle_stop("ppt")
                 return
 
             if self.ppt_app.SlideShowWindows.Count > 0:
@@ -211,6 +216,9 @@ class PPTWorker(QObject):
             self._running = False
             self._active_kind = None
             self.slideshow_ended.emit()
+            if self._overlay_visible is not False:
+                self._overlay_visible = False
+                self.overlay_visibility_changed.emit(False)
 
     def _update_window_rect(self, ss_win):
         try:
@@ -267,7 +275,66 @@ class PPTWorker(QObject):
                     self._last_win_rect = final_rect
                     # We send RAW rect (x, y, w, h). Main thread converts to QRect and finds Screen.
                     self.window_geometry_changed.emit(QRect(*final_rect), None)
+                self._update_overlay_visibility(ss_win, final_rect)
                     
+        except Exception:
+            pass
+
+    def _is_foreground_presentation(self):
+        try:
+            if not win32gui:
+                return False
+            fg = win32gui.GetForegroundWindow()
+            if not fg:
+                return False
+            if win32process and win32api:
+                try:
+                    _, pid = win32process.GetWindowThreadProcessId(fg)
+                    if pid:
+                        handle = win32api.OpenProcess(0x1000, False, pid)
+                        exe = win32process.GetModuleFileNameEx(handle, 0) or ""
+                        if exe.lower().endswith("powerpnt.exe"):
+                            return True
+                except Exception:
+                    pass
+            title = win32gui.GetWindowText(fg) or ""
+            title_lower = title.lower()
+            if "powerpoint" in title_lower:
+                return True
+            if any(t in title for t in ["幻灯片放映", "演示文稿"]):
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _update_overlay_visibility(self, ss_win, rect):
+        try:
+            if not win32gui or not win32api or not win32con:
+                return
+            hwnd = getattr(ss_win, "HWND", 0)
+            if not hwnd:
+                return
+            hwnd = int(hwnd)
+            fg = win32gui.GetForegroundWindow()
+            if not fg or int(fg) != hwnd or not self._is_foreground_presentation():
+                visible = False
+            else:
+                monitor = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+                info = win32api.GetMonitorInfo(monitor)
+                ml, mt, mr, mb = info["Monitor"]
+                wx, wy, ww, wh = rect
+                wr = wx + ww
+                wb = wy + wh
+                tol = 8
+                visible = (
+                    abs(wx - ml) <= tol
+                    and abs(wy - mt) <= tol
+                    and abs(wr - mr) <= tol
+                    and abs(wb - mb) <= tol
+                )
+            if visible != self._overlay_visible:
+                self._overlay_visible = visible
+                self.overlay_visibility_changed.emit(bool(visible))
         except Exception:
             pass
 
@@ -409,6 +476,7 @@ class PPTMonitor(QObject):
     slideshow_ended = Signal()
     slide_changed = Signal(int, int)
     window_geometry_changed = Signal(object, object)
+    overlay_visibility_changed = Signal(bool)
     video_state_changed = Signal(float, float, float)
     thumbnail_generated = Signal(int, str)
     
@@ -435,6 +503,7 @@ class PPTMonitor(QObject):
         self._worker.slideshow_ended.connect(self.slideshow_ended)
         self._worker.slide_changed.connect(self._on_slide_changed)
         self._worker.window_geometry_changed.connect(self._on_geometry_changed)
+        self._worker.overlay_visibility_changed.connect(self.overlay_visibility_changed)
         self._worker.video_state_changed.connect(self.video_state_changed)
         self._worker.video_state_changed.connect(self._update_local_video_state)
         self._worker.thumbnail_generated.connect(self.thumbnail_generated)

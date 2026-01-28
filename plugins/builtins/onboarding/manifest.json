@@ -1,0 +1,6 @@
+{
+  "name": "Onboarding",
+  "entry": "plugin.OnboardingPlugin",
+  "version": "1.0.0",
+  "type": "window"
+}

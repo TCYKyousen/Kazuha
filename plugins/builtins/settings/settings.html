@@ -3842,6 +3842,17 @@
               </svg>
             </div>
           </div>
+          <div class="settings-item" onclick="openOnboardingPreview()">
+            <div class="item-info">
+              <span class="item-label">首次启动引导预览</span>
+              <span class="item-desc">只演示界面流程，不保存任何设置</span>
+            </div>
+            <div class="item-state">
+              <svg class="chevron" viewBox="0 0 24 24">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+              </svg>
+            </div>
+          </div>
           <div class="settings-item" onclick="triggerTestCrash()">
             <div class="item-info">
               <span class="item-label" style="color: #ff4d4f;" data-i18n="debug.triggerCrash.label">触发测试崩溃</span>
@@ -7088,6 +7099,11 @@
   function createTestDialog() {
     if (window.pywebview && window.pywebview.api.create_dialog) {
       window.pywebview.api.create_dialog();
+    }
+  }
+  function openOnboardingPreview() {
+    if (window.pywebview && window.pywebview.api.open_onboarding_preview) {
+      window.pywebview.api.open_onboarding_preview();
     }
   }
 

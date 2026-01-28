@@ -30,7 +30,7 @@ from ppt_assistant.ui.overlay import OverlayWindow
 from plugins.builtins.settings.plugin import SettingsPlugin
 from plugins.builtins.timer.plugin import TimerPlugin
 from ppt_assistant.ui.tray import SystemTray
-from ppt_assistant.core.config import cfg, SETTINGS_PATH, PLUGINS_DIR, reload_cfg, _apply_theme_and_color, Theme, qconfig
+from ppt_assistant.core.config import cfg, SETTINGS_PATH, PLUGINS_DIR, reload_cfg, _apply_theme_and_color, Theme, qconfig, FIRST_RUN
 from ppt_assistant.core.timer_manager import TimerManager
 from ppt_assistant.core.i18n import t
 
@@ -666,6 +666,16 @@ class PPTAssistantApp:
         # Step 5: Plugins (IO/Process - expensive)
         yield 60, "loading_plugins"
         self._load_plugins()
+        try:
+            if FIRST_RUN and hasattr(self, "onboarding_plugin"):
+                p = self.onboarding_plugin
+                p.execute(preview=False)
+                while p.process and p.process.poll() is None:
+                    QApplication.processEvents()
+                    time.sleep(0.1)
+                reload_cfg()
+        except Exception:
+            pass
         
         # Step 6: Tray (UI)
         yield 80, "init_tray"
@@ -703,6 +713,7 @@ class PPTAssistantApp:
         # 1. Load Builtin Plugins
         builtin_plugins = [
             "plugins.builtins.settings.plugin.SettingsPlugin",
+            "plugins.builtins.onboarding.plugin.OnboardingPlugin",
             "plugins.builtins.timer.plugin.TimerPlugin",
             "plugins.builtins.spotlight.plugin.SpotlightPlugin",
             "plugins.builtins.app_launcher.plugin.AppLauncherPlugin"
@@ -720,6 +731,8 @@ class PPTAssistantApp:
                 # Maintain compatibility with existing code
                 if cls_name == "SettingsPlugin":
                     self.settings_plugin = plugin
+                elif cls_name == "OnboardingPlugin":
+                    self.onboarding_plugin = plugin
                 elif cls_name == "TimerPlugin":
                     self.timer_plugin = plugin
             except Exception as e:

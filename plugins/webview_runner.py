@@ -353,6 +353,9 @@ class Api(QObject):
 
     @Slot(str, str, "QVariant")
     def save_setting(self, category, key, value):
+        preview_mode = os.environ.get("ONBOARDING_PREVIEW", "").lower() == "true"
+        if preview_mode:
+            return
         if not isinstance(category, str) or not isinstance(key, str):
             return
         try:
@@ -506,6 +509,57 @@ class Api(QObject):
         if self._window:
             self._window.close()
         sys.exit(0)
+    @Slot()
+    def open_onboarding_preview(self):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        onboarding_html = os.path.join(base_dir, "builtins", "onboarding", "onboarding.html")
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_path = os.path.join(root_dir, "main.py")
+        env = os.environ.copy()
+        sp = env.get("SETTINGS_PATH")
+        if not sp:
+            env["SETTINGS_PATH"] = os.path.join(root_dir, "settings.json")
+        env["ONBOARDING_PREVIEW"] = "true"
+        width = "960"
+        height = "640"
+        if getattr(sys, "frozen", False):
+            subprocess.Popen([sys.executable, "--webview-runner", onboarding_html, "Onboarding Preview", width, height, "true"], env=env)
+        else:
+            subprocess.Popen([sys.executable, main_path, "--webview-runner", onboarding_html, "Onboarding Preview", width, height, "true"], env=env)
+    @Slot()
+    def open_license(self):
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        license_path = os.path.join(root_dir, "LICENSE")
+        if os.path.exists(license_path):
+            try:
+                import webbrowser
+                webbrowser.open("file:///" + license_path.replace("\\", "/"))
+            except Exception:
+                pass
+    @Slot(result="QVariant")
+    def import_settings(self):
+        preview_mode = os.environ.get("ONBOARDING_PREVIEW", "").lower() == "true"
+        target_path = self._get_settings_path()
+        file_path = None
+        try:
+            file_path, _ = QFileDialog.getOpenFileName(self._window, "选择设置文件", "", "JSON (*.json);;所有文件 (*.*)")
+        except Exception:
+            file_path = None
+        if not file_path:
+            return self.settings
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                return self.settings
+            if not preview_mode:
+                with open(target_path, "w", encoding="utf-8") as wf:
+                    json.dump(data, wf, indent=4, ensure_ascii=False)
+            self.settings = data
+            self.update_settings(data)
+            return data
+        except Exception:
+            return self.settings
 
     @Slot(result=str)
     def get_assets_path(self):
@@ -620,7 +674,12 @@ class MainWindow(QWebEngineView):
         super().__init__()
         self.setWindowTitle(title)
         self.resize(width, height)
-        self._center_on_screen()
+        try:
+            if "Onboarding" in str(title):
+                self.setWindowFlag(Qt.WindowMaximizeButtonHint, False)
+            self._center_on_screen()
+        except Exception:
+            self._center_on_screen()
         self._theme_mode = theme_mode
         self._custom_border = custom_border
         self._apply_page_background()
@@ -669,6 +728,12 @@ class MainWindow(QWebEngineView):
         settings_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         settings_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         self.page().scripts().insert(settings_script)
+        preview_flag = os.environ.get("ONBOARDING_PREVIEW", "").lower() == "true"
+        preview_script = QWebEngineScript()
+        preview_script.setSourceCode(f"window.__ONBOARDING_PREVIEW = {json.dumps(preview_flag)};")
+        preview_script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        preview_script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        self.page().scripts().insert(preview_script)
         if self._custom_border:
             self._inject_custom_border()
         self.load(QUrl.fromUserInput(url))

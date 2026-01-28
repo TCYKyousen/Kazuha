@@ -87,6 +87,8 @@ if not os.path.exists(PLUGINS_DIR):
     except:
         pass
 
+FIRST_RUN = not os.path.exists(SETTINGS_PATH)
+
 qconfig.load(SETTINGS_PATH, cfg)
 
 

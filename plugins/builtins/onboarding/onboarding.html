@@ -3035,6 +3035,249 @@
       filter: grayscale(0.8);
     }
 
+    /* Copied Settings Styles */
+    /* Pivot */
+    .pivot-container {
+      display: flex;
+      gap: 24px;
+      border-bottom: 1px solid var(--divider);
+      margin-bottom: 8px;
+    }
+
+    .pivot-item {
+      padding: 8px 4px 12px 4px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+      transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .pivot-item:active {
+      transform: scale(0.96);
+    }
+
+    .pivot-item:hover {
+      color: var(--text-primary);
+    }
+
+    .pivot-item.active {
+      color: var(--accent-blue);
+      font-weight: 600;
+    }
+
+    @keyframes pivotUnderlineIn {
+      from {
+        opacity: 0;
+        transform: scaleX(0.5);
+      }
+      to {
+        opacity: 1;
+        transform: scaleX(1);
+      }
+    }
+
+    .pivot-item.active::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent-blue);
+      border-radius: 1px;
+      animation: pivotUnderlineIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .pivot-content {
+      display: none;
+    }
+
+    .pivot-content.active {
+      display: block;
+      animation: pivotSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Slider */
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 160px;
+    }
+
+    .slider-value {
+      min-width: 45px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      color: var(--accent-blue);
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100px;
+      height: 4px;
+      background: var(--divider);
+      border-radius: 2px;
+      outline: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      background: var(--accent-blue);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.1s;
+      border: 2px solid var(--bg-surface);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Switch */
+    .switch {
+      width: 44px;
+      height: 22px;
+      background: var(--divider);
+      border-radius: 11px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+    }
+
+    .switch.active {
+      background: var(--accent-blue);
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: var(--bg-surface);
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 4px var(--shadow-color);
+    }
+
+    .switch.active::after {
+      transform: translateX(20px);
+    }
+
+    /* Custom Select */
+    .custom-select-container {
+      position: relative;
+      min-width: 140px;
+      display: inline-block;
+    }
+
+    .custom-select-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--divider);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 32px;
+    }
+
+    .custom-select-toggle:hover {
+      background-color: var(--item-hover);
+    }
+
+    .custom-select-label {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      margin-right: 8px;
+    }
+
+    .custom-select-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 16px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23888"><path d="M7 10l5 5 5-5z"/></svg>');
+      transition: transform 0.2s;
+    }
+
+    [data-theme="dark"] .custom-select-icon {
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ccc"><path d="M7 10l5 5 5-5z"/></svg>');
+    }
+    
+    .custom-select-container.open .custom-select-icon {
+      transform: rotate(180deg);
+    }
+
+    .custom-select-menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      max-height: 240px;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border-radius: 8px;
+      border: 1px solid var(--divider);
+      box-shadow: 0 8px 24px var(--shadow-color);
+      z-index: 20;
+      
+      display: block;
+      opacity: 0;
+      transform: scaleY(0.9) translateY(-10px);
+      transform-origin: top center;
+      transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .custom-select-container.open .custom-select-menu {
+      opacity: 1;
+      transform: scaleY(1) translateY(0);
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .custom-select-option {
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-primary);
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+
+    .custom-select-option:hover {
+      background: var(--item-hover);
+    }
+
+    .custom-select-option.selected {
+      background: var(--item-hover);
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+
     /* Modal for confirmation - Brand new Island design */
     .modal-overlay {
       position: fixed;
@@ -3247,6 +3490,18 @@
       top: 50%;
       transform: translate(-50%, -50%);
     }
+
+    /* Fix: Language menu opens upwards in footer */
+    .hero-footer .custom-select-menu {
+      top: auto;
+      bottom: calc(100% + 4px);
+      transform-origin: bottom center;
+      transform: scaleY(0.9) translateY(10px);
+    }
+
+    .hero-footer .custom-select-container.open .custom-select-menu {
+      transform: scaleY(1) translateY(0);
+    }
     
     .hero-footer.intro-hidden {
       opacity: 0;
@@ -3313,18 +3568,7 @@
 
 
 
-    .hero-footer {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 32px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
+
     .hero-links {
       display: flex;
       gap: 24px;
@@ -3381,6 +3625,7 @@
       display: flex;
       flex-direction: column;
       flex: 1;
+      gap: 24px;
     }
     .setup-screen.active .card {
       transform: none;
@@ -3531,19 +3776,70 @@ html, body {
   position: relative;
 }
 
-/* Ensure settings-item in onboarding looks right */
-.card .settings-item {
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      min-height: 60px;
-      border-bottom: 1px solid var(--divider);
-      transition: background 0.15s;
-    }
-    .card .settings-item:last-child {
-      border-bottom: none;
-    }
+/* Settings Group & Items */
+.settings-group {
+  background: var(--card-bg);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  width: 100%;
+  border: 1px solid var(--card-border);
+  position: relative;
+}
+
+.settings-item {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 60px;
+  border-bottom: 1px solid var(--divider);
+  transition: background 0.15s;
+}
+
+.settings-item:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.settings-item:last-child {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  border-bottom: none;
+}
+
+/* Animation for Final Step */
+.finish-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#finish-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+.finish-subtitle {
+  position: absolute;
+  bottom: 30%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  z-index: 20;
+  pointer-events: none;
+}
 </style>
 </head>
 <body>
@@ -3615,12 +3911,28 @@ html, body {
     // Resources
     const langResources = {
       "zh-CN": {
+        steps: ["外观风格", "启动设置", "界面调整", "准备就绪"],
         gpl: "查看 GPL 证书",
         import: "从外部导入配置",
         pivotTip: "请完成初始化设置以获得最佳体验。",
         theme: { title: "外观风格", desc: "选择您喜欢的应用主题", light: "亮色", dark: "暗色", auto: "跟随系统" },
-        startup: { title: "启动设置", desc: "配置应用的启动行为", label: "开机自启", sub: "登录 Windows 后自动启动应用" },
-        finish: { title: "准备就绪", desc: "所有设置已完成，您可以开始使用了", text: "点击完成以保存设置" },
+        themes: {
+          "default": "默认",
+          "material-you": "紫色",
+          "red-sunrise": "红色",
+          "emptiness-color": "灰色",
+          "mung-bean": "绿色",
+          "orange-wish": "橙色"
+        },
+        startup: { title: "启动设置", desc: "配置应用的启动行为", label: "开机自启", sub: "登录 Windows 后自动启动应用", taskbar: "将 Kazuha 注册到 Windows 任务栏", start: "将 Kazuha 注册到 Windows 开始屏幕" },
+        uiScaling: {
+          title: "界面调整",
+          desc: "调整界面缩放和边距以适应您的屏幕",
+          scale: "整体缩放",
+          popWindowScale: "弹窗缩放",
+          safeArea: "屏幕边距"
+        },
+        finish: { title: "准备就绪", sub: "快来体验激动人心的 Kazuha 吧！" },
         btn: { next: "下一步", prev: "返回", finish: "完成" },
         watermark: {
           1: "开发中版本",
@@ -3635,8 +3947,16 @@ html, body {
         import: "從外部匯入設定",
         pivotTip: "請完成初始化設定以獲得最佳體驗。",
         theme: { title: "外觀風格", desc: "選擇您喜歡的應用程式主題", light: "亮色", dark: "暗色", auto: "跟隨系統" },
-        startup: { title: "啟動設定", desc: "設定應用程式的啟動行為", label: "開機自動啟動", sub: "登入 Windows 後自動啟動應用程式" },
-        finish: { title: "準備就緒", desc: "所有設定已完成，您可以開始使用了", text: "點擊完成以儲存設定" },
+        themes: {
+          "default": "預設",
+          "material-you": "紫色",
+          "red-sunrise": "紅色",
+          "emptiness-color": "灰色",
+          "mung-bean": "綠色",
+          "orange-wish": "橙色"
+        },
+        startup: { title: "啟動設定", desc: "設定應用程式的啟動行為", label: "開機自動啟動", sub: "登入 Windows 後自動啟動應用程式", taskbar: "將 Kazuha 釘選到 Windows 工作列", start: "將 Kazuha 釘選到 Windows 開始畫面" },
+        finish: { title: "準備就緒", sub: "快來體驗激動人心的 Kazuha 吧！" },
         btn: { next: "下一步", prev: "返回", finish: "完成" },
         watermark: {
           1: "開發中版本",
@@ -3651,8 +3971,16 @@ html, body {
         import: "Import Config",
         pivotTip: "Complete setup for the best experience.",
         theme: { title: "Appearance", desc: "Choose your preferred theme", light: "Light", dark: "Dark", auto: "System" },
-        startup: { title: "Startup", desc: "Configure startup behavior", label: "Run at Startup", sub: "Automatically start when you log in" },
-        finish: { title: "Ready", desc: "All settings completed", text: "Click Finish to save settings" },
+        themes: {
+          "default": "Default",
+          "material-you": "Purple",
+          "red-sunrise": "Red",
+          "emptiness-color": "Gray",
+          "mung-bean": "Green",
+          "orange-wish": "Orange"
+        },
+        startup: { title: "Startup", desc: "Configure startup behavior", label: "Run at Startup", sub: "Automatically start when you log in", taskbar: "Pin Kazuha to Windows Taskbar", start: "Pin Kazuha to Windows Start" },
+        finish: { title: "Ready", sub: "Experience the exciting Kazuha!" },
         btn: { next: "Next", prev: "Back", finish: "Finish" },
         watermark: {
           1: "In-Development",
@@ -3663,12 +3991,28 @@ html, body {
         }
       },
       "ja-JP": {
+        steps: ["外観", "起動設定", "UI調整", "完了"],
         gpl: "GPLライセンスを表示",
         import: "設定をインポート",
         pivotTip: "最適な体験のために初期設定を完了してください。",
         theme: { title: "外観", desc: "お好みのテーマを選択してください", light: "ライト", dark: "ダーク", auto: "システム" },
-        startup: { title: "起動設定", desc: "起動時の動作を設定します", label: "スタートアップに登録", sub: "Windowsログイン時に自動的に起動します" },
-        finish: { title: "完了", desc: "設定が完了しました", text: "完了をクリックして設定を保存します" },
+        themes: {
+          "default": "デフォルト",
+          "material-you": "紫",
+          "red-sunrise": "赤",
+          "emptiness-color": "グレー",
+          "mung-bean": "緑",
+          "orange-wish": "オレンジ"
+        },
+        startup: { title: "起動設定", desc: "起動時の動作を設定します", label: "スタートアップに登録", sub: "Windowsログイン時に自動的に起動します", taskbar: "Kazuhaをタスクバーにピン留め", start: "Kazuhaをスタートにピン留め" },
+        uiScaling: {
+          title: "UI調整",
+          desc: "画面に合わせてUIのサイズと余白を調整します",
+          scale: "全体スケール",
+          popWindowScale: "ポップアップスケール",
+          safeArea: "セーフエリア"
+        },
+        finish: { title: "完了", sub: "エキサイティングなKazuhaを体験しましょう！" },
         btn: { next: "次へ", prev: "戻る", finish: "完了" },
         watermark: {
           1: "開発中バージョン",
@@ -3687,7 +4031,12 @@ html, body {
         language: "zh-CN",
         theme: "Light",
         themeId: "default",
-        runAtStartup: false
+        runAtStartup: false,
+        pinToTaskbar: false,
+        pinToStart: false,
+        scale: 1.0,
+        popWindowScale: 1.0,
+        safeArea: 0
       },
       previewMode: false,
       version: ""
@@ -3717,12 +4066,12 @@ html, body {
 
     // Theme Definitions
     const THEMES = [
-      { id: "default", name: "默认主题" },
-      { id: "material-you", name: "紫色心情" },
-      { id: "red-sunrise", name: "红日东升" },
-      { id: "emptiness-color", name: "空即是色" },
-      { id: "mung-bean", name: "绿豆冰沙" },
-      { id: "orange-wish", name: "心想事橙" }
+      { id: "default" },
+      { id: "material-you" },
+      { id: "red-sunrise" },
+      { id: "emptiness-color" },
+      { id: "mung-bean" },
+      { id: "orange-wish" }
     ];
 
     // Step Definitions
@@ -3731,54 +4080,113 @@ html, body {
       { // 1
         id: "theme",
         render: (t) => `
-          <div class="settings-item">
-            <div class="item-info">
-              <div class="item-label">${t.theme.title}</div>
-              <div class="item-desc">${t.theme.desc}</div>
+          <div class="settings-group">
+            <div class="settings-item">
+              <div class="item-info">
+                <div class="item-label">${t.theme.title}</div>
+                <div class="item-desc">${t.theme.desc}</div>
+              </div>
+              <div class="theme-select" id="theme-select-container">
+                <div class="theme-option ${state.config.theme === 'Light' ? 'active' : ''}" onclick="setTheme('Light')">${t.theme.light}</div>
+                <div class="theme-option ${state.config.theme === 'Dark' ? 'active' : ''}" onclick="setTheme('Dark')">${t.theme.dark}</div>
+                <div class="theme-option ${state.config.theme === 'Auto' ? 'active' : ''}" onclick="setTheme('Auto')">${t.theme.auto}</div>
+              </div>
             </div>
-            <div class="theme-select" id="theme-select-container">
-              <div class="theme-option ${state.config.theme === 'Light' ? 'active' : ''}" onclick="setTheme('Light')">${t.theme.light}</div>
-              <div class="theme-option ${state.config.theme === 'Dark' ? 'active' : ''}" onclick="setTheme('Dark')">${t.theme.dark}</div>
-              <div class="theme-option ${state.config.theme === 'Auto' ? 'active' : ''}" onclick="setTheme('Auto')">${t.theme.auto}</div>
+            
+            <div class="settings-item" style="display: block; padding-top: 16px;">
+               <div class="item-label" style="margin-bottom: 12px;">主题预设</div>
+               <div class="theme-gallery" id="theme-gallery">
+                  ${renderThemeGalleryHTML(t)}
+               </div>
             </div>
-          </div>
-          
-          <div class="settings-item" style="display: block; padding-top: 16px;">
-             <div class="item-label" style="margin-bottom: 12px;">主题预设</div>
-             <div class="theme-gallery" id="theme-gallery">
-                ${renderThemeGalleryHTML()}
-             </div>
           </div>
         `
       },
       { // 2
         id: "startup",
         render: (t) => `
-          <div class="settings-item" onclick="toggleStartup()" style="cursor: pointer;">
-            <div class="item-info">
-              <div class="item-label">${t.startup.label}</div>
-              <div class="item-desc">${t.startup.sub}</div>
+          <div class="settings-group">
+            <div class="settings-item" onclick="toggleStartup()" style="cursor: pointer;">
+              <div class="item-info">
+                <div class="item-label">${t.startup.label}</div>
+                <div class="item-desc">${t.startup.sub}</div>
+              </div>
+              <div class="switch ${state.config.runAtStartup ? 'active' : ''}" style="pointer-events:none;">
+                 <div class="switch-handle"></div>
+              </div>
             </div>
-            <div class="switch ${state.config.runAtStartup ? 'active' : ''}" style="pointer-events:none;">
-               <div class="switch-handle"></div>
+            
+            <div class="settings-item" onclick="togglePinToTaskbar()" style="cursor: pointer;">
+              <div class="item-info">
+                <div class="item-label">${t.startup.taskbar}</div>
+              </div>
+              <div class="switch ${state.config.pinToTaskbar ? 'active' : ''}" style="pointer-events:none;">
+                 <div class="switch-handle"></div>
+              </div>
+            </div>
+
+            <div class="settings-item" onclick="togglePinToStart()" style="cursor: pointer;">
+              <div class="item-info">
+                <div class="item-label">${t.startup.start}</div>
+              </div>
+              <div class="switch ${state.config.pinToStart ? 'active' : ''}" style="pointer-events:none;">
+                 <div class="switch-handle"></div>
+              </div>
             </div>
           </div>
         `
       },
       { // 3
+        id: "uiScaling",
+        render: (t) => `
+          <div class="settings-group">
+            <div class="settings-item">
+              <div class="item-info">
+                <div class="item-label">${t.uiScaling.scale}</div>
+              </div>
+              <div class="slider-container">
+                <input type="range" min="0.5" max="2.0" step="0.05" value="${state.config.scale}" oninput="updateRangeValue('scale', this.value)">
+                <span class="slider-value" id="val-scale">${Number(state.config.scale).toFixed(2)}x</span>
+              </div>
+            </div>
+            
+            <div class="settings-item">
+              <div class="item-info">
+                <div class="item-label">${t.uiScaling.popWindowScale}</div>
+              </div>
+              <div class="slider-container">
+                <input type="range" min="0.5" max="2.0" step="0.05" value="${state.config.popWindowScale}" oninput="updateRangeValue('popWindowScale', this.value)">
+                <span class="slider-value" id="val-popWindowScale">${Number(state.config.popWindowScale).toFixed(2)}x</span>
+              </div>
+            </div>
+            
+            <div class="settings-item">
+              <div class="item-info">
+                <div class="item-label">${t.uiScaling.safeArea}</div>
+              </div>
+              <div class="slider-container">
+                <input type="range" min="0" max="100" step="1" value="${state.config.safeArea}" oninput="updateRangeValue('safeArea', this.value)">
+                <span class="slider-value" id="val-safeArea">${state.config.safeArea}px</span>
+              </div>
+            </div>
+          </div>
+        `
+      },
+      { // 4
         id: "finish",
         render: (t) => `
-          <div style="text-align:center; padding: 40px;">
-            <div style="font-size: 64px; margin-bottom: 24px;">🎉</div>
-            <div style="font-size: 16px; font-weight: 500; color: var(--text-primary); margin-bottom: 8px;">${t.finish.title}</div>
-            <div style="color: var(--text-secondary);">${t.finish.text}</div>
+          <div class="finish-container" id="finish-container">
+            <canvas id="finish-canvas"></canvas>
+            <div id="finish-subtitle" class="finish-subtitle"></div>
           </div>
         `
       }
     ];
 
     // Helpers
-    function renderThemeGalleryHTML() {
+    function renderThemeGalleryHTML(t) {
+      if (!t) t = langResources[state.config.language] || langResources["zh-CN"];
+
       const currentId = state.config.themeId;
       const mode = state.config.theme;
       const isDark = mode === "Dark" || (mode === "Auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
@@ -3813,7 +4221,7 @@ html, body {
                 ${previewHTML}
              </div>
              <div class="theme-meta">
-               <div class="theme-meta-name">${theme.name}</div>
+               <div class="theme-meta-name">${t.themes[theme.id]}</div>
              </div>
            </div>
          `;
@@ -3839,6 +4247,18 @@ html, body {
     }
 
     // Actions
+    window.updateRangeValue = (key, val) => {
+      state.config[key] = Number(val);
+      const valEl = document.getElementById(`val-${key}`);
+      if (valEl) {
+         if (key === 'safeArea') {
+             valEl.textContent = val + 'px';
+         } else {
+             valEl.textContent = Number(val).toFixed(1) + 'x';
+         }
+      }
+    };
+
     window.setTheme = (val) => {
       state.config.theme = val;
       renderStep();
@@ -3851,8 +4271,250 @@ html, body {
       applyTheme();
     };
 
+    // --- Particle Animation System ---
+    let animId = null;
+    
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.targetX = null;
+        this.targetY = null;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.life = 1.0;
+        this.delay = 0;
+        this.isSpark = false;
+      }
+      
+      update() {
+        if (this.isSpark) {
+           this.x += this.vx;
+           this.y += this.vy;
+           this.vx *= 0.9;
+           this.vy *= 0.9;
+           this.life -= 0.03;
+           return;
+        }
+
+        if (this.delay > 0) {
+           this.delay--;
+           this.x += this.vx;
+           this.y += this.vy;
+           this.vx *= 0.92;
+           this.vy *= 0.92;
+        } else {
+           if (this.targetX !== null) {
+              const dx = this.targetX - this.x;
+              const dy = this.targetY - this.y;
+              this.x += dx * 0.08;
+              this.y += dy * 0.08;
+           }
+        }
+      }
+      
+      draw(ctx) {
+         if (this.life <= 0) return;
+         ctx.globalAlpha = this.life;
+         ctx.fillStyle = this.color;
+         ctx.fillRect(this.x, this.y, 2, 2);
+      }
+    }
+
+    function startParticleAnimation(t) {
+      const canvas = document.getElementById('finish-canvas');
+      const subEl = document.getElementById('finish-subtitle');
+      if (!canvas) return;
+      
+      // Reset subtitle
+      if (subEl) {
+        subEl.textContent = t.finish.sub;
+        subEl.style.opacity = '0';
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      
+      const width = rect.width;
+      const height = rect.height;
+      const cx = width / 2;
+      const cy = height / 2;
+      
+      const colors = ['#ff0055', '#0055ff', '#00dd88', '#ffcc00', '#aa00ff', '#00ffff'];
+      const ribbonCount = 12;
+      const ribbons = [];
+
+      function getTextPoints() {
+         const tmpCanvas = document.createElement('canvas');
+         tmpCanvas.width = width;
+         tmpCanvas.height = height;
+         const tCtx = tmpCanvas.getContext('2d');
+         
+         const fontFamily = getComputedStyle(document.body).fontFamily;
+         
+         tCtx.textAlign = 'center';
+         tCtx.textBaseline = 'middle';
+         tCtx.fillStyle = '#fff';
+         
+         tCtx.font = `800 80px ${fontFamily}`;
+         tCtx.fillText(t.finish.title, width/2, height/2 - 40);
+         
+         const imgData = tCtx.getImageData(0, 0, width, height).data;
+         const points = [];
+         for (let y = 0; y < height; y += 4) {
+            for (let x = 0; x < width; x += 4) {
+               const alpha = imgData[(y * width + x) * 4 + 3];
+               if (alpha > 128) {
+                  points.push({x, y});
+               }
+            }
+         }
+         for (let i = points.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [points[i], points[j]] = [points[j], points[i]];
+         }
+         return points;
+      }
+      
+      const textPoints = getTextPoints();
+      const pointsPerRibbon = Math.ceil(textPoints.length / ribbonCount);
+
+      for (let i = 0; i < ribbonCount; i++) {
+         const isLeft = i < ribbonCount / 2;
+         const startX = isLeft 
+            ? Math.random() * (width * 0.3) 
+            : width - Math.random() * (width * 0.3);
+         const startY = height + 100; 
+         
+         const endX = cx + (Math.random() - 0.5) * 200;
+         const endY = cy + (Math.random() - 0.5) * 100;
+         
+         const cp1x = startX + (isLeft ? 150 : -150) + (Math.random() - 0.5) * 100;
+         const cp1y = height * 0.7;
+         
+         const cp2x = endX + (isLeft ? -50 : 50) + (Math.random() - 0.5) * 100;
+         const cp2y = height * 0.5;
+         
+         const color = colors[i % colors.length];
+         
+         const sliceStart = i * pointsPerRibbon;
+         const sliceEnd = Math.min((i + 1) * pointsPerRibbon, textPoints.length);
+         const myPoints = textPoints.slice(sliceStart, sliceEnd);
+
+         ribbons.push({
+            start: {x: startX, y: startY},
+            cp1: {x: cp1x, y: cp1y},
+            cp2: {x: cp2x, y: cp2y},
+            end: {x: endX, y: endY},
+            color: color,
+            progress: 0,
+            speed: 0.008 + Math.random() * 0.008,
+            width: 4 + Math.random() * 3,
+            exploded: false,
+            points: myPoints
+         });
+      }
+      
+      let particles = [];
+      let subtitleShown = false;
+      
+      function getBezierPoint(t, p0, p1, p2, p3) {
+         const k = 1 - t;
+         return {
+            x: k*k*k*p0.x + 3*k*k*t*p1.x + 3*k*t*t*p2.x + t*t*t*p3.x,
+            y: k*k*k*p0.y + 3*k*k*t*p1.y + 3*k*t*t*p2.y + t*t*t*p3.y
+         };
+      }
+      
+      function loop() {
+        ctx.clearRect(0, 0, width, height);
+        
+        let anyRibbonActive = false;
+        ribbons.forEach(r => {
+           if (r.progress < 1) {
+              anyRibbonActive = true;
+              r.progress += r.speed;
+              if (r.progress >= 1) r.progress = 1;
+              
+              const currentPos = getBezierPoint(r.progress, r.start, r.cp1, r.cp2, r.end);
+              
+              ctx.beginPath();
+              ctx.arc(currentPos.x, currentPos.y, r.width, 0, Math.PI*2);
+              ctx.fillStyle = r.color;
+              ctx.shadowBlur = 20;
+              ctx.shadowColor = r.color;
+              ctx.fill();
+              ctx.shadowBlur = 0;
+              
+              if (r.progress > 0.01) {
+                 const tailPos = getBezierPoint(Math.max(0, r.progress - 0.04), r.start, r.cp1, r.cp2, r.end);
+                 ctx.beginPath();
+                 ctx.moveTo(tailPos.x, tailPos.y);
+                 ctx.lineTo(currentPos.x, currentPos.y);
+                 ctx.strokeStyle = r.color;
+                 ctx.lineWidth = r.width;
+                 ctx.lineCap = 'round';
+                 ctx.stroke();
+              }
+           } else if (!r.exploded) {
+              r.exploded = true;
+              const origin = r.end;
+              r.points.forEach(pt => {
+                 const p = new Particle(origin.x, origin.y, r.color);
+                 p.targetX = pt.x;
+                 p.targetY = pt.y;
+                 p.vx = (Math.random() - 0.5) * 8; 
+                 p.vy = (Math.random() - 0.5) * 8;
+                 p.life = 1; 
+                 p.delay = 10 + Math.random() * 20;
+                 particles.push(p);
+              });
+              
+              for(let k=0; k<30; k++) {
+                 const p = new Particle(origin.x, origin.y, r.color);
+                 p.vx = (Math.random() - 0.5) * 12;
+                 p.vy = (Math.random() - 0.5) * 12;
+                 p.isSpark = true; 
+                 particles.push(p);
+              }
+           }
+        });
+        
+        particles.forEach(p => {
+           p.update();
+           p.draw(ctx);
+        });
+        
+        if (!anyRibbonActive && !subtitleShown && particles.length > 0) {
+           subtitleShown = true;
+           if (subEl) setTimeout(() => { subEl.style.opacity = '1'; }, 500);
+        }
+        
+        animId = requestAnimationFrame(loop);
+      }
+      
+      if (animId) cancelAnimationFrame(animId);
+      loop();
+    }
+
     window.toggleStartup = () => {
       state.config.runAtStartup = !state.config.runAtStartup;
+      renderStep();
+    };
+
+    window.togglePinToTaskbar = () => {
+      state.config.pinToTaskbar = !state.config.pinToTaskbar;
+      renderStep();
+    };
+
+    window.togglePinToStart = () => {
+      state.config.pinToStart = !state.config.pinToStart;
       renderStep();
     };
 
@@ -3868,6 +4530,10 @@ html, body {
     }
 
     function renderStep(direction) {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = null;
+      }
       const s = steps[state.step];
       if (!s) return;
       const t = langResources[state.config.language] || langResources["zh-CN"];
@@ -3897,6 +4563,11 @@ html, body {
         const themeSelect = els.stepContent.querySelector('.theme-select');
         if (themeSelect) {
            requestAnimationFrame(() => updateSelectSlider(themeSelect));
+        }
+        
+        // Start fireworks if finish step
+        if (s.id === 'finish') {
+           requestAnimationFrame(() => startParticleAnimation(t));
         }
       }
       
@@ -3998,6 +4669,11 @@ html, body {
         window.pywebview.api.save_setting("Appearance", "ThemeMode", state.config.theme);
         window.pywebview.api.save_setting("Appearance", "ThemeId", state.config.themeId);
         window.pywebview.api.save_setting("General", "RunAtStartup", state.config.runAtStartup);
+        window.pywebview.api.save_setting("General", "PinToTaskbar", state.config.pinToTaskbar);
+        window.pywebview.api.save_setting("General", "PinToStart", state.config.pinToStart);
+        window.pywebview.api.save_setting("Overlay", "Scale", state.config.scale);
+        window.pywebview.api.save_setting("Overlay", "PopWindowScale", state.config.popWindowScale);
+        window.pywebview.api.save_setting("Overlay", "SafeArea", state.config.safeArea);
       }
       if (window.pywebview?.api?.on_confirm) {
         window.pywebview.api.on_confirm();
@@ -4075,6 +4751,11 @@ html, body {
         if (settings.Appearance?.ThemeMode) state.config.theme = settings.Appearance.ThemeMode;
         if (settings.Appearance?.ThemeId) state.config.themeId = settings.Appearance.ThemeId;
         if (typeof settings.General?.RunAtStartup === "boolean") state.config.runAtStartup = settings.General.RunAtStartup;
+        if (typeof settings.General?.PinToTaskbar === "boolean") state.config.pinToTaskbar = settings.General.PinToTaskbar;
+        if (typeof settings.General?.PinToStart === "boolean") state.config.pinToStart = settings.General.PinToStart;
+        if (settings.Overlay?.Scale) state.config.scale = settings.Overlay.Scale;
+        if (settings.Overlay?.PopWindowScale) state.config.popWindowScale = settings.Overlay.PopWindowScale;
+        if (settings.Overlay?.SafeArea) state.config.safeArea = settings.Overlay.SafeArea;
       }
       
       renderLangMenu(); // Render menu first

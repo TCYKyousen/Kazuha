@@ -119,6 +119,152 @@ def _image_path_to_data_url(path):
     encoded = base64.b64encode(data).decode("utf-8")
     return f"data:image/png;base64,{encoded}"
 
+def _resolve_app_paths():
+    if getattr(sys, "frozen", False):
+        exe_path = sys.executable
+        work_dir = os.path.dirname(exe_path)
+        args = ""
+        icon_path = exe_path
+    else:
+        exe_path = sys.executable
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py = os.path.join(root_dir, "main.py")
+        work_dir = root_dir
+        args = f'"{main_py}"'
+        icon_path = os.path.join(root_dir, "icons", "logo.ico")
+    return exe_path, work_dir, args, icon_path
+
+def _create_shortcut(target_path, shortcut_path, work_dir=None, icon_path=None, args=None):
+    try:
+        import win32com.client
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(shortcut_path)
+        shortcut.TargetPath = target_path
+        if work_dir:
+            shortcut.WorkingDirectory = work_dir
+        if icon_path:
+            shortcut.IconLocation = icon_path
+        if args:
+            shortcut.Arguments = args
+        shortcut.Save()
+        return True
+    except Exception as e:
+        print(f"Error creating shortcut: {e}", file=sys.stderr)
+        return False
+
+def _set_run_at_startup(enable):
+    if sys.platform != "win32": return
+    import winreg
+    key = winreg.HKEY_CURRENT_USER
+    sub_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_name = "Kazuha"
+    
+    exe_path, work_dir, args, icon_path = _resolve_app_paths()
+    cmd = f'"{exe_path}" {args}' if args else f'"{exe_path}"'
+    
+    try:
+        with winreg.OpenKey(key, sub_key, 0, winreg.KEY_ALL_ACCESS) as k:
+            if enable:
+                winreg.SetValueEx(k, app_name, 0, winreg.REG_SZ, cmd)
+            else:
+                try:
+                    winreg.DeleteValue(k, app_name)
+                except FileNotFoundError:
+                    pass
+    except Exception as e:
+        print(f"Error setting startup: {e}", file=sys.stderr)
+
+def _pin_to_start(enable):
+    if sys.platform != "win32": return
+    try:
+        programs_path = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs")
+        if not os.path.exists(programs_path):
+            return
+        shortcut_path = os.path.join(programs_path, "Kazuha.lnk")
+        
+        if enable:
+            exe_path, work_dir, args, icon_path = _resolve_app_paths()
+            _create_shortcut(exe_path, shortcut_path, work_dir, icon_path, args)
+        else:
+            if os.path.exists(shortcut_path):
+                try:
+                    os.remove(shortcut_path)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"Error pinning to start: {e}", file=sys.stderr)
+
+def _pin_to_taskbar(enable):
+    if sys.platform != "win32": return
+    # Best effort: Create a shortcut on Desktop if requested, 
+    # as Taskbar pinning is restricted.
+    # But user specifically asked for Taskbar. 
+    # Let's try the verb method, if it works, great.
+    try:
+        import win32com.client
+        shell = win32com.client.Dispatch("Shell.Application")
+        
+        exe_path, work_dir, args, icon_path = _resolve_app_paths()
+        
+        # We need a shortcut first to pin? Or pin the exe?
+        # Usually we pin the exe or a shortcut.
+        # Since we might have args (dev mode), we need to pin the shortcut.
+        
+        # Let's create a temporary shortcut
+        temp_dir = os.path.join(os.environ["TEMP"], "Kazuha_Pin")
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        shortcut_path = os.path.join(temp_dir, "Kazuha.lnk")
+        _create_shortcut(exe_path, shortcut_path, work_dir, icon_path, args)
+        
+        folder = shell.Namespace(temp_dir)
+        item = folder.ParseName("Kazuha.lnk")
+        
+        # Verbs are localized. This is the problem.
+        # English: "Pin to Taskbar"
+        # Chinese: "固定到任务栏"
+        # We can try iterating verbs.
+        
+        verbs = item.Verbs()
+        taskbar_verb = None
+        for v in verbs:
+            name = v.Name.replace("&", "").lower()
+            if "taskbar" in name or "任务栏" in name or "タスクバー" in name:
+                if enable and ("pin" in name or "固定" in name or "ピン" in name) and ("unpin" not in name and "取消" not in name and "外す" not in name):
+                    taskbar_verb = v
+                    break
+                elif not enable and ("unpin" in name or "取消" in name or "外す" in name):
+                    taskbar_verb = v
+                    break
+        
+        if taskbar_verb:
+            taskbar_verb.DoIt()
+            
+        # Cleanup
+        # os.remove(shortcut_path) # Keep it? No, delete it.
+        # But if we pin the shortcut, the shortcut file must exist?
+        # Yes, if we pin a shortcut, the shortcut file must stay.
+        # So we should create the shortcut in a permanent place if we want to pin it.
+        # Maybe use the Start Menu shortcut?
+        
+        if enable:
+             # Ensure start menu shortcut exists first
+             _pin_to_start(True)
+             programs_path = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs")
+             shortcut_path = os.path.join(programs_path, "Kazuha.lnk")
+             folder = shell.Namespace(programs_path)
+             item = folder.ParseName("Kazuha.lnk")
+             if item:
+                 verbs = item.Verbs()
+                 for v in verbs:
+                    name = v.Name.replace("&", "").lower()
+                    if "taskbar" in name or "任务栏" in name or "タスクバー" in name:
+                        if ("pin" in name or "固定" in name or "ピン" in name) and ("unpin" not in name and "取消" not in name and "外す" not in name):
+                             v.DoIt()
+                             break
+    except Exception as e:
+        print(f"Error pinning to taskbar: {e}", file=sys.stderr)
+
 class Api(QObject):
     def __init__(self, window=None):
         super().__init__()
@@ -383,6 +529,16 @@ class Api(QObject):
             with open(settings_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
             self.settings = data
+            
+            # Hook for system integration settings
+            if category == "General":
+                if key == "RunAtStartup":
+                    _set_run_at_startup(bool(value))
+                elif key == "PinToTaskbar":
+                    _pin_to_taskbar(bool(value))
+                elif key == "PinToStart":
+                    _pin_to_start(bool(value))
+
             if category == "Appearance" and key in ("ThemeMode", "ThemeId"):
                 self.update_settings(data)
         except Exception as e:
